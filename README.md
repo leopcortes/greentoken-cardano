@@ -217,3 +217,23 @@ cardano-cli conway transaction submit \
 ```
 
 ---
+
+# Ambiente de Desenvolvimento
+
+O projeto atualmente está sendo rodado num workspace do emulador Demeter, passos para configurar:
+
+1. Acessar `https://demeter.run/products/starter-kits`, realizar logine e acessar a aba "`Console`".
+
+2. Na seção "`Ports`" criar uma porta "`Cardano Node`" do tipo "`cardano-preprod`".
+
+3. Na seção "`Workspaces`" criar um workspace com o repositório atual na branch `main`.
+
+4. Selecionar os seguintes toolchains: `Plutus Tx` e `NodeJS`.
+
+5. Selecionar os seguintes extras: `Caradno Binaries`, `Cardano CLI (Edge)`, `Cabal Cache`, `Nix` e `Jupyter Notebook`.
+
+6. Selecionar o workspace size como "`Large`".
+
+7. Selecionar a network como "`Preprod`".
+
+8. Esperar a configuração do workspace e então abrir o VsCode.
