@@ -1,1 +1,0 @@
-cardano-cli query utxo --address $(cat assets/contract.addr) --testnet-magic $CARDANO_NODE_MAGIC

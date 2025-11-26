@@ -1,1 +1,62 @@
+# Haskell / Cabal 
 dist-newstyle/
+cabal.project.local
+.stack-work/
+.cache/
+*.hi
+*.o
+
+# Chaves e carteiras (NUNCA COMMITAR!) 
+*.skey
+*.hwsfile
+*.priv
+*.vkey
+*.addr
+*.stake.vkey
+*.stake.skey
+*.payment.vkey
+*.payment.skey
+
+# Arquivos temporários ou sensíveis do Cardano-CLI 
+*.tx
+*.txs
+*.tx-body
+*.tx-body.json
+*.tx-signed
+*.signed
+*.raw
+*.draft
+
+# hashes de UTxO / queries / outputs
+protocol.json
+protocol-parameters.json
+pparams.json
+pp.json
+*.query
+
+# scripts específicos gerados
+*.policyID
+*.script.hash
+
+# datums, redeemers gerados automaticamente
+assets/datums/datum-*.json
+assets/redeemers/redeemer-*.json
+
+# ativos compilados
+*.plutus
+*.uplc
+*.cbor
+
+# Logs 
+*.log
+logs/
+*.error
+
+# Arquivos de execução no Demeter (cache) 
+demeter/
+workspace/
+node-ipc/
+
+# VSCode 
+.vscode/
+.history/

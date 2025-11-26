@@ -216,6 +216,16 @@ cardano-cli conway transaction submit \
   --socket-path "$CARDANO_NODE_SOCKET_PATH"
 ```
 
+## ADA
+
+Para realizar as transações é necessário ADA, para testes é possivel "pegar emprestado" no link https://docs.cardano.org/cardano-testnets/tools/faucet.
+
+Basta inserir o endereço do usuário que pode ser adquirido com o comando:
+
+```bash
+cat assets/users/user1/user1.addr
+```
+
 ---
 
 # Ambiente de Desenvolvimento
