@@ -1,19 +1,22 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module Main where
 
+import System.Environment (getArgs)
 import Cardano.Api
-import Options.Applicative
-import Hello.Contract
+import Cardano.Api.Shelley (PlutusScript (..))
+import Greentoken.BottleValidator qualified as GT
 
-data Options = Options
-    { outputFile :: String }
-
-parser :: Parser FilePath
-parser = argument str (metavar "FILENAME" <> help "Output filename for the Plutus script")
+writePlutusScript :: FilePath -> PlutusScript PlutusScriptV2 -> IO ()
+writePlutusScript file script = do
+  result <- writeFileTextEnvelope file Nothing script
+  case result of
+    Left err  -> putStrLn (displayError err)
+    Right ()  -> pure ()
 
 main :: IO ()
 main = do
-    filename <- execParser (info parser briefDesc)
-    result <- writeFileTextEnvelope filename Nothing serializedScript
-    case result of
-        Left err -> putStrLn $ "Error: " ++ show err
-        Right () -> return ()
+  args <- getArgs
+  case args of
+    [outFile] -> writePlutusScript outFile GT.serializedScript
+    _         -> putStrLn "Usage: plutus-starter-kit <output-file>"
