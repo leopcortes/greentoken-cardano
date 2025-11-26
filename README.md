@@ -40,16 +40,30 @@ Ideias:
 
 # Execução
 
-## Configuração
+## 0. Configuração
 
 ```bash
 cabal update
 cabal build
 cabal test
 cabal run write-bottle-validator
+
+chmod +x create-user.sh
+chmod +x create-bottle.sh
+chmod +x advance-stage.sh
 ```
 
-## 1. Criar nova garrafa
+## 1. Criar novo usuário
+
+Usando o script `create-user.sh`:
+
+```bash
+./create-user.sh <user-id>
+```
+
+## 2. Criar nova garrafa
+
+Usando o script `create-bottle.sh`:
 
 ```bash
 ./create-bottle.sh <bottle-id> <user-id>
@@ -61,7 +75,7 @@ O script cuida de:
 - criar o UTxO no endereço do script (bottle.addr),
 - enviar 10 Greentoken + ADA para o usuário.
 
-## 2. Verificar garrafas existentes e seus estados
+## 3. Verificar garrafas existentes e seus estados
 
 Para verificar as garrfas já criadas, seus hashes Tx e hashes de estado: 
 
@@ -79,7 +93,7 @@ cardano-cli conway transaction hash-script-data \
   --script-data-file assets/datums/bottle-<id>/datum-bottle-<id>-<state>.json
 ```
 
-## 3. Realizar operações sobre as garrafas
+## 4. Realizar operações sobre as garrafas
 
 Usando o script `advance-stage.sh`:
 
@@ -110,7 +124,7 @@ BOTTLE_TX_IN="TxHash#TxIx"
 ./advance-stage.sh <STAGE> <BOTTLE_ID> "$USER_ADDR" "$BOTTLE_TX_IN"
 ```
 
-## Verificar estados e saldos
+## 5. Verificar estados e saldos
 
 Ver estados das garrafas:
 
@@ -133,6 +147,9 @@ cardano-cli conway query utxo \
 ---
 
 # Minting Greentoken
+
+As chaves de policy deste repositório são apenas para uso em testnet / ambiente acadêmico.
+Não reutilizar essas chaves em mainnet.
 
 Regras:
 

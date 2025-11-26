@@ -1,3 +1,5 @@
+-- Executa todos os testes do BottleValidator
+
 module Main where
 
 import Test.Tasty

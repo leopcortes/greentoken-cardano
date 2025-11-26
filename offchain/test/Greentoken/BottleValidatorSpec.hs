@@ -1,3 +1,5 @@
+-- Arquivo de testes do BottleValidator, verifica transicoes validas e invalidas entre estagios
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module Greentoken.BottleValidatorSpec where
@@ -16,11 +18,11 @@ import PlutusTx.Prelude (BuiltinByteString)
 import qualified PlutusTx.Prelude as PlutusTx
 import Plutus.V2.Ledger.Api as PlutusV2
 
--- Usuário fictício
+-- Usuário ficticio
 dummyUser :: PubKeyHash
 dummyUser = PubKeyHash "0011223344"
 
--- ID fictício
+-- ID ficticio
 dummyBottleId :: BuiltinByteString
 dummyBottleId = "bottle123"
 
@@ -45,9 +47,7 @@ run :: BottleDatum -> Stage -> Bool
 run dat next =
     mkValidator dat (AdvanceTo next) dummyCtx
 
---------------------------------------------------------------------------------
 -- TESTES
---------------------------------------------------------------------------------
 
 tests :: TestTree
 tests = testGroup "Bottle Validator Tests"
@@ -67,7 +67,7 @@ tests = testGroup "Bottle Validator Tests"
       assertBool "" $
         run (mkDatum AtStation) Shredded
 
-    -- inválidas:
+    -- invalidas:
 
   , testCase "Inserted → AtStation (inválido)" $
       assertBool "" $

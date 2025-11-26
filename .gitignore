@@ -6,7 +6,7 @@ cabal.project.local
 *.hi
 *.o
 
-# Chaves e carteiras (NUNCA COMMITAR!) 
+# Chaves e carteiras
 *.skey
 *.hwsfile
 *.priv
@@ -17,7 +17,7 @@ cabal.project.local
 *.payment.vkey
 *.payment.skey
 
-# Arquivos temporários ou sensíveis do Cardano-CLI 
+# Arquivos temporários ou sensiveis do Cardano-CLI 
 *.tx
 *.txs
 *.tx-body
@@ -34,11 +34,10 @@ pparams.json
 pp.json
 *.query
 
-# scripts específicos gerados
-*.policyID
+# scripts especificos gerados
 *.script.hash
 
-# datums, redeemers gerados automaticamente
+# Datums, redeemers gerados automaticamente
 assets/datums/datum-*.json
 assets/redeemers/redeemer-*.json
 

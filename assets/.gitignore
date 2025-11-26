@@ -1,7 +1,14 @@
-*.skey
-*.vkey
-wallet1.addr
-*.tx
-*.tx-signed
-pparams.json
-pp.json
+# Ignorar tudo dentro de assets/
+assets/*
+
+# Exceto manter as pastas vazias
+!assets/.gitkeep
+!assets/datums/.gitkeep
+!assets/redeemers/.gitkeep
+!assets/txs/.gitkeep
+!assets/users/.gitkeep
+!assets/wallet/.gitkeep
+
+# Permitir tudo de policy
+!assets/policy/
+!assets/policy/*
