@@ -1,4 +1,17 @@
 {
     "haskell.manageHLS": "PATH",
-    "task.allowAutomaticTasks": "on"
+    "task.allowAutomaticTasks": "on",
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "greentoken_db",
+            "group": "localhost",
+            "database": "greentoken_db",
+            "username": "anapnobrega"
+        }
+    ]
 }
