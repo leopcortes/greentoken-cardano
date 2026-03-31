@@ -4,6 +4,11 @@
 
 set -e
 
+# Resolve o diretorio raiz do projeto (pai de scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 USER_ID="$1"
 
 if [ -z "$USER_ID" ]; then

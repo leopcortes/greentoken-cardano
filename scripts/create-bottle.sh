@@ -4,6 +4,11 @@
 
 set -e
 
+# Resolve o diretorio raiz do projeto (pai de scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 # Recebe BOTTLE_ID e USER_ID como parametros
 BOTTLE_ID="$1"
 USER_ID="$2"

@@ -316,7 +316,7 @@ export CARDANO_NODE_MAGIC=1
 
 ```bash
 cd ~/Desktop/unb/greentoken-cardano
-./setup-wallet.sh
+scripts/setup-wallet.sh
 ```
 
 Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`, `bottle.addr`
@@ -324,7 +324,7 @@ Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`, `bottle.addr
 ### 7.3 Gerar chaves da minting policy
 
 ```bash
-./setup-policy.sh
+scripts/setup-policy.sh
 ```
 
 Gera: `assets/policy/policy.vkey`, `policy.skey`, `policy.script`, `policyID`
@@ -356,7 +356,7 @@ Acesse: **https://docs.cardano.org/cardano-testnets/tools/faucet**
 Aguarde ~1 minuto e verifique:
 
 ```bash
-./query-balance.sh
+scripts/query-balance.sh
 ```
 
 ---
@@ -421,7 +421,7 @@ cd ~/Desktop/unb/greentoken-cardano
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
 export CARDANO_NODE_MAGIC=1
 
-./create-user.sh user-teste
+scripts/create-user.sh user-teste
 ```
 
 Anote o endereço e o pubkey hash exibidos.
@@ -491,13 +491,13 @@ export CARDANO_NODE_MAGIC=1
 
 | Script | Descrição | Uso |
 |--------|-----------|-----|
-| `setup-wallet.sh` | Gera chaves do operador | `./setup-wallet.sh` |
-| `setup-policy.sh` | Gera chaves da minting policy | `./setup-policy.sh` |
-| `create-user.sh` | Cria um novo usuário | `./create-user.sh <USER_ID>` |
-| `create-bottle.sh` | Cria uma garrafa no contrato | `./create-bottle.sh <BOTTLE_ID> <USER_ID>` |
-| `advance-stage.sh` | Avança estágio de uma garrafa | `./advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
-| `query-bottle.sh` | Consulta UTxOs no script | `./query-bottle.sh [TX_HASH]` |
-| `query-balance.sh` | Consulta saldo | `./query-balance.sh [ADDR\|USER_ID]` |
+| `scripts/setup-wallet.sh` | Gera chaves do operador | `scripts/setup-wallet.sh` |
+| `scripts/setup-policy.sh` | Gera chaves da minting policy | `scripts/setup-policy.sh` |
+| `scripts/create-user.sh` | Cria um novo usuário | `scripts/create-user.sh <USER_ID>` |
+| `scripts/create-bottle.sh` | Cria uma garrafa no contrato | `scripts/create-bottle.sh <BOTTLE_ID> <USER_ID>` |
+| `scripts/advance-stage.sh` | Avança estágio de uma garrafa | `scripts/advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
+| `scripts/query-bottle.sh` | Consulta UTxOs no script | `scripts/query-bottle.sh [TX_HASH]` |
+| `scripts/query-balance.sh` | Consulta saldo | `scripts/query-balance.sh [ADDR\|USER_ID]` |
 
 ### Cardano CLI
 
@@ -602,6 +602,6 @@ ls -la mithril-client
 O operador não tem tADA suficiente:
 
 ```bash
-./query-balance.sh
+scripts/query-balance.sh
 # Se vazio ou < 5 ADA, solicite mais no faucet
 ```

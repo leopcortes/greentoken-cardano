@@ -8,6 +8,11 @@
 
 set -e
 
+# Resolve o diretorio raiz do projeto (pai de scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 TX_HASH_FILTER="$1"
 
 if [ -z "$CARDANO_NODE_MAGIC" ] || [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then

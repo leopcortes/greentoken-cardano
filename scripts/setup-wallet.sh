@@ -10,6 +10,11 @@
 
 set -e
 
+# Resolve o diretorio raiz do projeto (pai de scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 if [ -z "$CARDANO_NODE_MAGIC" ]; then
   echo "Defina CARDANO_NODE_MAGIC no ambiente (ex: export CARDANO_NODE_MAGIC=1)."
   exit 1

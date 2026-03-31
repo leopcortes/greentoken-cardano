@@ -10,6 +10,11 @@
 
 set -e
 
+# Resolve o diretorio raiz do projeto (pai de scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 POLICY_DIR="assets/policy"
 VKEY="${POLICY_DIR}/policy.vkey"
 SKEY="${POLICY_DIR}/policy.skey"

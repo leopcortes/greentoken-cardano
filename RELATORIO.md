@@ -36,8 +36,8 @@ Executados uma única vez para preparar o ambiente:
 
 | Script | Função |
 |--------|--------|
-| `setup-wallet.sh` | Gera chaves do operador (`payment.vkey/skey/addr`) e endereço do script Plutus (`bottle.addr`) |
-| `setup-policy.sh` | Gera chaves da minting policy (`policy.vkey/skey`), o native script (`policy.script`) e computa o `policyID` |
+| `scripts/setup-wallet.sh` | Gera chaves do operador (`payment.vkey/skey/addr`) e endereço do script Plutus (`bottle.addr`) |
+| `scripts/setup-policy.sh` | Gera chaves da minting policy (`policy.vkey/skey`), o native script (`policy.script`) e computa o `policyID` |
 
 Ambos verificam se as chaves já existem para evitar sobrescrita acidental.
 
@@ -45,16 +45,16 @@ Ambos verificam se as chaves já existem para evitar sobrescrita acidental.
 
 | Script | Função |
 |--------|--------|
-| `create-user.sh` | Gera par de chaves (vkey/skey), endereço testnet e **pubkey hash** (`.pkh`) para um novo usuário |
-| `create-bottle.sh` | Cria uma garrafa no contrato, gera datums para todos os 5 estágios, faz mint de 10 Greentoken. Exibe o **TX_HASH** e o UTxO da garrafa |
-| `advance-stage.sh` | Avança a garrafa para o próximo estágio, distribui recompensa em Greentoken. Exibe o **TX_HASH** e o novo UTxO |
+| `scripts/create-user.sh` | Gera par de chaves (vkey/skey), endereço testnet e **pubkey hash** (`.pkh`) para um novo usuário |
+| `scripts/create-bottle.sh` | Cria uma garrafa no contrato, gera datums para todos os 5 estágios, faz mint de 10 Greentoken. Exibe o **TX_HASH** e o UTxO da garrafa |
+| `scripts/advance-stage.sh` | Avança a garrafa para o próximo estágio, distribui recompensa em Greentoken. Exibe o **TX_HASH** e o novo UTxO |
 
 #### Scripts de consulta
 
 | Script | Função |
 |--------|--------|
-| `query-bottle.sh` | Consulta UTxOs no endereço do script Plutus. Aceita filtro por `TX_HASH`. Necessário para obter o `BOTTLE_TX_IN` usado no `advance-stage.sh` |
-| `query-balance.sh` | Verifica saldo do operador (sem argumento), de um usuário (`./query-balance.sh user1`) ou de qualquer endereço Cardano |
+| `scripts/query-bottle.sh` | Consulta UTxOs no endereço do script Plutus. Aceita filtro por `TX_HASH`. Necessário para obter o `BOTTLE_TX_IN` usado no `advance-stage.sh` |
+| `scripts/query-balance.sh` | Verifica saldo do operador (sem argumento), de um usuário (`scripts/query-balance.sh user1`) ou de qualquer endereço Cardano |
 
 **Recompensas por estágio (conforme scripts on-chain):**
 
@@ -238,37 +238,37 @@ export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
 export CARDANO_NODE_MAGIC=1
 
 # 1. Gerar chaves do operador e endereço do script
-./setup-wallet.sh
+scripts/setup-wallet.sh
 
 # 2. Gerar chaves da minting policy
-./setup-policy.sh
+scripts/setup-policy.sh
 
 # 3. Obter tADA no faucet para o endereço exibido pelo setup-wallet.sh
-https://docs.cardano.org/cardano-testnets/tools/faucet
+#    https://docs.cardano.org/cardano-testnets/tools/faucet
 
 # 4. Verificar recebimento
-./query-balance.sh
+scripts/query-balance.sh
 ```
 
 ### 3.6 Usar os Scripts Bash (modo manual)
 
 ```bash
 # Criar usuário (gera chaves + pubkey hash)
-./create-user.sh user3
+scripts/create-user.sh user3
 
 # Criar garrafa (mint + depositar no contrato)
-./create-bottle.sh bottle-1237 user1
+scripts/create-bottle.sh bottle-1237 user1
 # Saída inclui TX_HASH e UTxO (ex: abc123...#0)
 
 # Consultar UTxOs da garrafa no script
-./query-bottle.sh
+scripts/query-bottle.sh
 
 # Avançar estágio (requer BOTTLE_TX_IN do UTxO atual)
-./advance-stage.sh compacted bottle-1237 "$USER_ADDR" "$BOTTLE_TX_IN"
+scripts/advance-stage.sh compacted bottle-1237 "$USER_ADDR" "$BOTTLE_TX_IN"
 # Saída inclui TX_HASH e novo UTxO
 
 # Verificar saldo de um usuário
-./query-balance.sh user1
+scripts/query-balance.sh user1
 ```
 
 ### 3.7 Testar a API
@@ -323,13 +323,14 @@ greentoken-cardano/
 │   ├── src/                        # Backend Node.js/TypeScript
 │   ├── package.json
 │   └── tsconfig.json
-├── setup-wallet.sh                 # Setup: gerar chaves do operador + endereço do script
-├── setup-policy.sh                 # Setup: gerar chaves da minting policy + policyID
-├── create-user.sh                  # Operação: criar usuário (chaves + pubkey hash)
-├── create-bottle.sh                # Operação: criar garrafa (mint + contrato)
-├── advance-stage.sh                # Operação: avançar estágio de garrafa
-├── query-bottle.sh                 # Consulta: UTxOs no endereço do script
-├── query-balance.sh                # Consulta: saldo de qualquer endereço
+├── scripts/
+│   ├── setup-wallet.sh             # Setup: gerar chaves do operador + endereço do script
+│   ├── setup-policy.sh             # Setup: gerar chaves da minting policy + policyID
+│   ├── create-user.sh              # Operação: criar usuário (chaves + pubkey hash)
+│   ├── create-bottle.sh            # Operação: criar garrafa (mint + contrato)
+│   ├── advance-stage.sh            # Operação: avançar estágio de garrafa
+│   ├── query-bottle.sh             # Consulta: UTxOs no endereço do script
+│   └── query-balance.sh            # Consulta: saldo de qualquer endereço
 ├── SETUP-LOCAL.md                  # Guia de configuração do ambiente local
 ├── RELATORIO.md                    # Este relatório
 ├── plutus-greentoken.cabal         # Configuração Haskell
@@ -363,7 +364,7 @@ greentoken-cardano/
 ### Prioridade Alta
 
 1. **Configurar PostgreSQL e rodar o schema**: criar o banco `greentoken_db`, aplicar `backend/db/schema.sql`, verificar que as tabelas foram criadas (ver seção 6 do `SETUP-LOCAL.md`)
-2. **Gerar novas chaves para o ambiente local**: executar `./setup-wallet.sh` e `./setup-policy.sh` (ver seção 7 do `SETUP-LOCAL.md`)
+2. **Gerar novas chaves para o ambiente local**: executar `scripts/setup-wallet.sh` e `scripts/setup-policy.sh` (ver seção 7 do `SETUP-LOCAL.md`)
 3. **Obter tADA (ADA de teste)**: usar o faucet oficial para enviar ADA de teste ao endereço do operador (ver seção 8 do `SETUP-LOCAL.md`)
 4. **Testar o backend end-to-end**: iniciar o nó Cardano + backend, criar um usuário via API, criar uma garrafa, verificar se a transação aparece on-chain e se o confirmation worker atualiza o banco (ver seção 10 do `SETUP-LOCAL.md`)
 
