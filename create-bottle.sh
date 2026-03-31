@@ -78,9 +78,6 @@ TOKEN_NAME_HEX=$(echo -n "Greentoken" | xxd -ps | tr -d '\n')
 SCRIPT_ADDR=$(cat assets/wallet/bottle.addr)
 OPERATOR_ADDR=$(cat assets/wallet/payment.addr)
 
-MIN_ADA_BOTTLE=2000000
-MIN_ADA_REWARD=2000000
-
 # Busca UTXO ADA puro do operador para financiar a transacao
 OPERATOR_UTXO_INFO=$(cardano-cli conway query utxo \
   --address "$OPERATOR_ADDR" \
@@ -150,10 +147,16 @@ cardano-cli conway transaction sign \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --out-file "$SIGNED_FILE"
 
+# Extrai o tx hash (necessario para rastrear a transacao)
+TX_HASH=$(cardano-cli conway transaction txid --tx-file "$SIGNED_FILE")
+
 # Envia a transacao para a rede
 cardano-cli conway transaction submit \
   --tx-file "$SIGNED_FILE" \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --socket-path "$CARDANO_NODE_SOCKET_PATH"
 
+echo ""
 echo "Garrafa $BOTTLE_ID criada com datum em $DATUM_INSERTED_FILE e 10 Greentoken enviados para $USER_ADDR."
+echo "TX_HASH = $TX_HASH"
+echo "UTxO da garrafa no script: ${TX_HASH}#0"

@@ -35,12 +35,22 @@ cardano-cli address build \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --out-file "$USER_ADDR"
 
+# Extrai o pubkey hash (necessario para o backend e para os datums)
+USER_PKH_FILE="${USER_DIR}/${USER_ID}.pkh"
+USER_PKH=$(cardano-cli address key-hash \
+  --payment-verification-key-file "$USER_VKEY")
+echo -n "$USER_PKH" > "$USER_PKH_FILE"
+
 echo "Usuário criado:"
 echo "  USER_ID      = ${USER_ID}"
 echo "  VKEY         = ${USER_VKEY}"
 echo "  SKEY         = ${USER_SKEY}"
 echo "  ADDR         = ${USER_ADDR}"
+echo "  PKH          = ${USER_PKH_FILE}"
 echo
 echo "Endereço do usuário:"
 cat "$USER_ADDR"
+echo
+echo "Pubkey hash:"
+echo "$USER_PKH"
 echo

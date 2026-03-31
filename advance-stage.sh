@@ -156,10 +156,17 @@ cardano-cli conway transaction sign \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --out-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed"
 
+# Extrai o tx hash
+TX_HASH=$(cardano-cli conway transaction txid \
+  --tx-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed")
+
 # Envia transacao para a rede
 cardano-cli conway transaction submit \
   --tx-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed" \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --socket-path "$CARDANO_NODE_SOCKET_PATH"
 
+echo ""
 echo "Transição da garrafa $BOTTLE_ID para estágio '$STAGE' enviada e ${TOKEN_AMOUNT} Greentoken recompensados a $REWARD_ADDR."
+echo "TX_HASH = $TX_HASH"
+echo "Novo UTxO da garrafa no script: ${TX_HASH}#0"

@@ -98,7 +98,7 @@ CREATE TABLE blockchain_txs (
 );
 
 -- Greentokens enviados ao reciclador por estagio concluido.
--- inserted=10, compacted=5, collected=5, atstation=10, shredded=10
+-- inserted=10, compacted=10, collected=5, atstation=10, shredded=20 (total=55)
 CREATE TABLE rewards (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,

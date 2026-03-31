@@ -1,14 +1,18 @@
-# Ignorar tudo dentro de assets/
-assets/*
+# Chaves privadas (geradas localmente, nunca commitar)
+wallet/payment.skey
+wallet/payment.vkey
+policy/policy.skey
+policy/policy.vkey
+users/*/*.skey
+users/*/*.vkey
+users/*/*.pkh
 
-# Exceto manter as pastas vazias
-!assets/.gitkeep
-!assets/datums/.gitkeep
-!assets/redeemers/.gitkeep
-!assets/txs/.gitkeep
-!assets/users/.gitkeep
-!assets/wallet/.gitkeep
+# Transações (geradas pelos scripts)
+txs/
 
-# Permitir tudo de policy
-!assets/policy/
-!assets/policy/*
+# Datums por garrafa (gerados pelo create-bottle.sh e pelo backend)
+datums/
+
+# Protocol parameters (gerados localmente)
+protocol.json
+pp.json
