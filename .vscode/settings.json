@@ -1,6 +1,6 @@
 {
     "haskell.manageHLS": "PATH",
-    "task.allowAutomaticTasks": "on",
+    "task.allowAutomaticTasks": "off",
     "sqltools.connections": [
         {
             "ssh": "Disabled",
