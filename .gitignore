@@ -1,4 +1,4 @@
-# Haskell / Cabal 
+# Haskell / Cabal
 dist-newstyle/
 cabal.project.local
 .stack-work/
@@ -6,56 +6,40 @@ cabal.project.local
 *.hi
 *.o
 
-# Chaves e carteiras
+# Node.js
+node_modules/
+
+# Variáveis de ambiente
+.env
+!.env.example
+
+# Chaves privadas — NUNCA commitar
 *.skey
 *.hwsfile
 *.priv
-*.vkey
-*.addr
-*.stake.vkey
-*.stake.skey
-*.payment.vkey
-*.payment.skey
 
-# Arquivos temporários ou sensiveis do Cardano-CLI 
-*.tx
-*.txs
-*.tx-body
-*.tx-body.json
-*.tx-signed
-*.signed
-*.raw
-*.draft
+# Arquivos gerados pelo cardano-cli (transações, datums por garrafa)
+assets/txs/
+assets/datums/
 
-# hashes de UTxO / queries / outputs
+# Protocol parameters (gerados localmente via query)
+assets/protocol.json
+assets/pp.json
 protocol.json
 protocol-parameters.json
 pparams.json
 pp.json
-*.query
 
-# scripts especificos gerados
-*.script.hash
-
-# Datums, redeemers gerados automaticamente
-assets/datums/datum-*.json
-assets/redeemers/redeemer-*.json
-
-# ativos compilados
-*.plutus
-*.uplc
-*.cbor
-
-# Logs 
+# Logs
 *.log
 logs/
 *.error
 
-# Arquivos de execução no Demeter (cache) 
+# Demeter (cache de ambiente cloud — não mais utilizado)
 demeter/
 workspace/
 node-ipc/
 
-# VSCode 
+# VSCode
 .vscode/
 .history/

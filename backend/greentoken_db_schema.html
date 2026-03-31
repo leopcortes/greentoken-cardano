@@ -1,0 +1,144 @@
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<div id="erd" style="padding: 1rem 0"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: dark ? 'dark' : 'default',
+  themeVariables: {
+    fontSize: '14px',
+    lineColor: dark ? '#888' : '#555',
+    textColor: dark ? '#ddd' : '#222',
+  },
+});
+
+const diagram = `erDiagram
+  USERS {
+    uuid id PK
+    string role "recycler | owner"
+    string name
+    string email
+    string wallet_address
+    string pubkey_hash
+    timestamp created_at
+  }
+
+  CONTAINERS {
+    uuid id PK
+    uuid owner_id FK
+    string name
+    string location_name
+    float latitude
+    float longitude
+    int capacity_liters
+    int current_volume_liters
+    string status "active | full | in_route | maintenance"
+    timestamp last_updated
+  }
+
+  TRUCKS {
+    uuid id PK
+    string license_plate
+    string status "available | on_route | maintenance"
+    timestamp last_updated
+  }
+
+  ROUTES {
+    uuid id PK
+    uuid truck_id FK
+    string status "planned | in_progress | completed"
+    timestamp created_at
+    timestamp completed_at
+  }
+
+  ROUTE_STOPS {
+    uuid id PK
+    uuid route_id FK
+    uuid container_id FK
+    int stop_order
+    string status "pending | collected"
+    timestamp collected_at
+  }
+
+  BOTTLES {
+    uuid id PK
+    uuid user_id FK
+    uuid container_id FK
+    string bottle_id_text
+    string bottle_id_hex
+    string current_stage "inserted|compacted|collected|atstation|shredded"
+    string utxo_hash
+    int utxo_index
+    timestamp inserted_at
+    timestamp compacted_at
+    timestamp collected_at
+    timestamp atstation_at
+    timestamp shredded_at
+  }
+
+  BLOCKCHAIN_TXS {
+    uuid id PK
+    uuid bottle_id FK
+    string stage
+    string tx_hash
+    string status "pending | confirmed | failed"
+    string datum_json
+    string redeemer_json
+    timestamp submitted_at
+    timestamp confirmed_at
+  }
+
+  REWARDS {
+    uuid id PK
+    uuid user_id FK
+    uuid bottle_id FK
+    uuid tx_id FK
+    string stage
+    int greentoken_amount
+    string tx_hash
+    timestamp sent_at
+  }
+
+  USERS ||--o{ CONTAINERS : "owns"
+  USERS ||--o{ BOTTLES : "deposits"
+  CONTAINERS ||--o{ BOTTLES : "receives"
+  TRUCKS ||--o{ ROUTES : "executes"
+  ROUTES ||--o{ ROUTE_STOPS : "has"
+  CONTAINERS ||--o{ ROUTE_STOPS : "picked up in"
+  BOTTLES ||--o{ BLOCKCHAIN_TXS : "generates"
+  BOTTLES ||--o{ REWARDS : "triggers"
+  USERS ||--o{ REWARDS : "receives"
+  REWARDS }o--|| BLOCKCHAIN_TXS : "linked to"
+`;
+
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg .row-rect-odd path, #erd svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
