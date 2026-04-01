@@ -40,6 +40,10 @@ demeter/
 workspace/
 node-ipc/
 
+# Arquivos de sessão SQL (gerados por IDEs)
+*.session.sql
+
 # VSCode
 .vscode/
 .history/
+.claude/

@@ -38,6 +38,15 @@ async function cli(...args: string[]): Promise<string> {
   return stdout.trim()
 }
 
+// cardano-cli 10.x retorna JSON em alguns comandos (ex: transaction txid → {"txhash":"abc..."})
+function parseTxHash(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed.txhash) return parsed.txhash
+  } catch { /* not JSON, return as-is */ }
+  return raw
+}
+
 function tmpFile(prefix: string): string {
   const rand = crypto.randomBytes(4).toString('hex')
   return path.join(os.tmpdir(), `greentoken-${prefix}-${rand}.json`)
@@ -203,9 +212,10 @@ export async function createBottle(params: {
   )
 
   // Tx hash
-  const txHash = await cli('conway', 'transaction', 'txid',
+  const txHashRaw = await cli('conway', 'transaction', 'txid',
     '--tx-file', signedFile,
   )
+  const txHash = parseTxHash(txHashRaw)
 
   // Submit
   await cli('conway', 'transaction', 'submit',
@@ -285,9 +295,10 @@ export async function advanceStage(params: {
   )
 
   // Tx hash
-  const txHash = await cli('conway', 'transaction', 'txid',
+  const txHashRaw = await cli('conway', 'transaction', 'txid',
     '--tx-file', signedFile,
   )
+  const txHash = parseTxHash(txHashRaw)
 
   // Submit
   await cli('conway', 'transaction', 'submit',
