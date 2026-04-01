@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+source "${SCRIPT_DIR}/_db-helper.sh"
+
 # Parametros da chamada
 STAGE="$1"
 BOTTLE_ID="$2"
@@ -91,6 +93,7 @@ OPERATOR_UTXO_INFO=$(cardano-cli conway query utxo \
   --address "$OPERATOR_ADDR" \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --socket-path "$CARDANO_NODE_SOCKET_PATH" \
+  --output-text \
   | awk 'NR>2 && $0 ~ /lovelace \+ TxOutDatum/ {print $1 "#" $2 " " $3}' \
   | sort -k2,2n \
   | tail -n1)
@@ -162,8 +165,10 @@ cardano-cli conway transaction sign \
   --out-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed"
 
 # Extrai o tx hash
-TX_HASH=$(cardano-cli conway transaction txid \
+# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} — extrair apenas o hash
+TX_HASH_RAW=$(cardano-cli conway transaction txid \
   --tx-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed")
+TX_HASH=$(echo "$TX_HASH_RAW" | grep -oP '"txhash"\s*:\s*"\K[^"]+' || echo "$TX_HASH_RAW")
 
 # Envia transacao para a rede
 cardano-cli conway transaction submit \
@@ -175,3 +180,18 @@ echo ""
 echo "Transição da garrafa $BOTTLE_ID para estágio '$STAGE' enviada e ${TOKEN_AMOUNT} Greentoken recompensados a $REWARD_ADDR."
 echo "TX_HASH = $TX_HASH"
 echo "Novo UTxO da garrafa no script: ${TX_HASH}#0"
+
+# Salvar no banco de dados
+REDEEMER_JSON=$(cat "$REDEEMER" | tr -d '\n')
+DATUM_OUT_JSON=$(cat "$DATUM_OUT" | tr -d '\n')
+load_db_url && {
+  BOTTLE_DB_ID=$(db_find_bottle_by_text "$BOTTLE_ID")
+  if [ -z "$BOTTLE_DB_ID" ]; then
+    echo "[db] AVISO: Garrafa '$BOTTLE_ID' nao encontrada no banco."
+  else
+    # Insere a transacao pendente (o confirmation worker vai confirmar e atualizar o estagio)
+    db_exec "INSERT INTO blockchain_txs (bottle_id, stage, tx_hash, status, datum_json, redeemer_json)
+      VALUES ('$BOTTLE_DB_ID', '$STAGE', '$TX_HASH', 'pending', '$DATUM_OUT_JSON', '$REDEEMER_JSON');" > /dev/null
+    echo "[db] Transacao pendente registrada (tx: $TX_HASH)"
+  fi
+}

@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+source "${SCRIPT_DIR}/_db-helper.sh"
+
 # Recebe BOTTLE_ID e USER_ID como parametros
 BOTTLE_ID="$1"
 USER_ID="$2"
@@ -29,16 +31,27 @@ fi
 # Caminhos dos arquivos do usuario
 USER_VKEY="assets/users/${USER_ID}/${USER_ID}.vkey"
 USER_ADDR_FILE="assets/users/${USER_ID}/${USER_ID}.addr"
+USER_PKH_FILE="assets/users/${USER_ID}/${USER_ID}.pkh"
 
-# Verifica se os arquivos do usuario existem
-if [ ! -f "$USER_VKEY" ] || [ ! -f "$USER_ADDR_FILE" ]; then
-  echo "Arquivos do usuário não encontrados: $USER_VKEY ou $USER_ADDR_FILE"
+# Verifica se o endereco existe
+if [ ! -f "$USER_ADDR_FILE" ]; then
+  echo "Endereco do usuario nao encontrado: $USER_ADDR_FILE"
+  echo "Crie o usuario com: scripts/create-user.sh $USER_ID"
+  echo "  ou importe com:   scripts/import-user.sh $USER_ID <WALLET_ADDR>"
   exit 1
 fi
 
-# Hash da chave publica do usuário
-USER_HASH=$(cardano-cli address key-hash \
-  --payment-verification-key-file "$USER_VKEY")
+# Obtem o pubkey hash: usa .pkh se existir (usuario importado), senao calcula do .vkey
+if [ -f "$USER_PKH_FILE" ]; then
+  USER_HASH=$(cat "$USER_PKH_FILE")
+elif [ -f "$USER_VKEY" ]; then
+  USER_HASH=$(cardano-cli address key-hash \
+    --payment-verification-key-file "$USER_VKEY")
+else
+  echo "Pubkey hash ou chave publica nao encontrados para $USER_ID"
+  echo "Importe o usuario com: scripts/import-user.sh $USER_ID <WALLET_ADDR>"
+  exit 1
+fi
 
 # Converte o ID da garrafa para hex
 BOTTLE_HEX=$(echo -n "$BOTTLE_ID" | xxd -ps | tr -d '\n')
@@ -88,6 +101,7 @@ OPERATOR_UTXO_INFO=$(cardano-cli conway query utxo \
   --address "$OPERATOR_ADDR" \
   --testnet-magic "$CARDANO_NODE_MAGIC" \
   --socket-path "$CARDANO_NODE_SOCKET_PATH" \
+  --output-text \
   | awk 'NR>2 && $0 ~ /lovelace \+ TxOutDatum/ {print $1 "#" $2 " " $3}' \
   | sort -k2,2n \
   | tail -n1)
@@ -153,7 +167,9 @@ cardano-cli conway transaction sign \
   --out-file "$SIGNED_FILE"
 
 # Extrai o tx hash (necessario para rastrear a transacao)
-TX_HASH=$(cardano-cli conway transaction txid --tx-file "$SIGNED_FILE")
+# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} — extrair apenas o hash
+TX_HASH_RAW=$(cardano-cli conway transaction txid --tx-file "$SIGNED_FILE")
+TX_HASH=$(echo "$TX_HASH_RAW" | grep -oP '"txhash"\s*:\s*"\K[^"]+' || echo "$TX_HASH_RAW")
 
 # Envia a transacao para a rede
 cardano-cli conway transaction submit \
@@ -165,3 +181,25 @@ echo ""
 echo "Garrafa $BOTTLE_ID criada com datum em $DATUM_INSERTED_FILE e 10 Greentoken enviados para $USER_ADDR."
 echo "TX_HASH = $TX_HASH"
 echo "UTxO da garrafa no script: ${TX_HASH}#0"
+
+# Salvar no banco de dados
+DATUM_JSON=$(cat "$DATUM_INSERTED_FILE" | tr -d '\n')
+load_db_url && {
+  # Busca o UUID do usuario no banco
+  USER_DB_ID=$(db_find_user_by_addr "$USER_ADDR")
+  if [ -z "$USER_DB_ID" ]; then
+    echo "[db] AVISO: Usuario com endereco $USER_ADDR nao encontrado no banco."
+    echo "[db] Registre o usuario primeiro (import-user.sh ou create-user.sh)."
+  else
+    # Insere a garrafa
+    BOTTLE_DB_ID=$(db_exec "INSERT INTO bottles (user_id, bottle_id_text, bottle_id_hex, current_stage)
+      VALUES ('$USER_DB_ID', '$BOTTLE_ID', '$BOTTLE_HEX', 'inserted')
+      RETURNING id;")
+    echo "[db] Garrafa salva no banco (id: $BOTTLE_DB_ID)"
+
+    # Insere a transacao pendente (o confirmation worker vai confirmar)
+    db_exec "INSERT INTO blockchain_txs (bottle_id, stage, tx_hash, status, datum_json)
+      VALUES ('$BOTTLE_DB_ID', 'inserted', '$TX_HASH', 'pending', '$DATUM_JSON');" > /dev/null
+    echo "[db] Transacao pendente registrada (tx: $TX_HASH)"
+  fi
+}

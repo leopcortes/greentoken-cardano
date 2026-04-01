@@ -31,7 +31,7 @@ Guia passo a passo para configurar o ambiente de desenvolvimento local com carda
 | PostgreSQL | 14+ | `psql --version` |
 | Git | 2.x | `git --version` |
 
-Espaço em disco necessário: ~35 GB (31 GB para dados da blockchain Preprod + binários e configs).
+Espaço em disco necessário: ~20 GB (17 GB para dados da blockchain Preprod + binários e configs).
 
 ---
 
@@ -47,12 +47,10 @@ Baixe o arquivo `cardano-node-<versao>-linux.tar.gz` (exemplo: `cardano-node-10.
 ### 2.2 Extrair e instalar
 
 ```bash
-# Extrair
 cd ~/Downloads
 tar -xzf cardano-node-*.tar.gz
 
-# Os binários podem estar em subpastas (ex: bin/)
-# Localize-os:
+# Localize os binários (podem estar em subpastas):
 find . -name "cardano-node" -o -name "cardano-cli" | head -5
 
 # Copiar para o PATH
@@ -97,20 +95,15 @@ mkdir -p ~/cardano/preprod/db
 
 ### 3.2 Baixar os arquivos de configuração
 
-Os arquivos de configuração oficiais estão no repositório `iohk-nix`:
-
 ```bash
 cd ~/cardano/preprod
 
-# Config e topology
 curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/config.json -o config.json
 curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/topology.json -o topology.json
-
-# Arquivos genesis (do iohk-nix — versões completas)
-curl -sL https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/preprod/byron-genesis.json -o byron-genesis.json
-curl -sL https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/preprod/shelley-genesis.json -o shelley-genesis.json
-curl -sL https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/preprod/alonzo-genesis.json -o alonzo-genesis.json
-curl -sL https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/preprod/conway-genesis.json -o conway-genesis.json
+curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/byron-genesis.json -o byron-genesis.json
+curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/shelley-genesis.json -o shelley-genesis.json
+curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/alonzo-genesis.json -o alonzo-genesis.json
+curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/conway-genesis.json -o conway-genesis.json
 ```
 
 ### 3.3 Corrigir o config.json
@@ -168,7 +161,6 @@ Baixe o asset `mithril-<versao>-linux-x64.tar.gz` (NÃO o arquivo `mithril-clien
 ```bash
 cd ~/cardano
 tar -xzf ~/Downloads/mithril-*.tar.gz
-# O binário mithril-client estará no diretório extraído
 chmod +x mithril-client
 ```
 
@@ -183,21 +175,19 @@ export GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/inpu
 # Listar snapshots disponíveis
 ./mithril-client cardano-db snapshot list
 
-# Baixar o mais recente (o primeiro da lista)
+# Baixar o mais recente
 ./mithril-client cardano-db download --download-dir ~/cardano/preprod/db latest
 ```
 
-O download é de ~31 GB. Aguarde a conclusão e a verificação do certificado.
-
 ### 4.3 Mover os dados (se necessário)
 
-O Mithril pode criar uma subpasta dentro de `db/`. Se existir `db/db/`, mova o conteúdo:
+O Mithril pode criar uma subpasta `db/` dentro de `db/`. Se existir, mova o conteúdo:
 
 ```bash
 # Verifique a estrutura
 ls ~/cardano/preprod/db/
 
-# Se existir uma subpasta db/ dentro de db/:
+# Se existir db/db/:
 mv ~/cardano/preprod/db/db/* ~/cardano/preprod/db/
 rmdir ~/cardano/preprod/db/db
 ```
@@ -223,14 +213,13 @@ cardano-cli conway query tip \
 Saída esperada quando sincronizado:
 ```json
 {
-  "epoch": 200,
+  "epoch": 280,
   "syncProgress": "100.00",
-  "slot": 82000000,
-  ...
+  "slot": 119000000
 }
 ```
 
-> **Nota:** Mesmo com `syncProgress: 100.00`, o nó continua rodando para acompanhar novos blocos. Isso é normal — ele precisa estar rodando sempre que você for submeter transações ou consultar a blockchain.
+> **Nota:** O nó precisa estar rodando sempre que for submeter transações ou consultar a blockchain. Após o `cardano-start`, aguarde ~10 segundos antes de usar o `cardano-cli` (o socket demora para ficar disponível).
 
 ### 5.3 Parar o nó
 
@@ -238,13 +227,13 @@ Saída esperada quando sincronizado:
 pkill -f cardano-node
 ```
 
-### 5.4 (Opcional) Aliases para conveniência
+### 5.4 Aliases para conveniência
 
 Adicione ao `~/.bashrc`:
 
 ```bash
-alias cardano-start='nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 &'
-alias cardano-stop='pkill -f cardano-node'
+alias cardano-start='nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 & echo Nó iniciado'
+alias cardano-stop='pkill -f cardano-node && echo Nó parado'
 alias cardano-status='cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket'
 alias cardano-log='tail -f ~/cardano/node.log'
 
@@ -307,6 +296,8 @@ Os scripts de transação precisam de chaves de assinatura (`.skey`) que não s�
 
 ### 7.1 Definir variáveis de ambiente
 
+(Já deve estar configurado em `~/.bashrc` pelo passo 5.4)
+
 ```bash
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
 export CARDANO_NODE_MAGIC=1
@@ -315,7 +306,6 @@ export CARDANO_NODE_MAGIC=1
 ### 7.2 Gerar chaves do operador
 
 ```bash
-cd ~/Desktop/unb/greentoken-cardano
 scripts/setup-wallet.sh
 ```
 
@@ -335,25 +325,19 @@ Gera: `assets/policy/policy.vkey`, `policy.skey`, `policy.script`, `policyID`
 
 ## 8. Obter tADA (ADA de teste)
 
-O operador precisa de tADA para pagar as taxas de transação e depositar ADA nos UTxOs do script.
+O operador precisa de tADA para pagar as taxas de transação.
 
-### 8.1 Verificar o endereço do operador
+### Opção A: Faucet oficial
 
-```bash
-cat assets/wallet/payment.addr
-```
+1. Verifique o endereço do operador: `cat assets/wallet/payment.addr`
+2. Acesse: **https://docs.cardano.org/cardano-testnets/tools/faucet**
+3. Selecione **Preprod**, cole o endereço e solicite os fundos
 
-### 8.2 Solicitar tADA no faucet
+### Opção B: Carteira Lace (ou outra)
 
-Acesse: **https://docs.cardano.org/cardano-testnets/tools/faucet**
+Se você já tem tADA em uma carteira como a Lace (extensão Chrome), envie pelo menos **10 tADA** para o endereço do operador exibido pelo `setup-wallet.sh`.
 
-1. Selecione a rede **Preprod**
-2. Cole o endereço do operador
-3. Solicite os fundos (normalmente 10.000 tADA)
-
-### 8.3 Verificar o recebimento
-
-Aguarde ~1 minuto e verifique:
+### Verificar recebimento
 
 ```bash
 scripts/query-balance.sh
@@ -387,7 +371,7 @@ CARDANO_NODE_SOCKET_PATH=/home/<seu-usuario>/cardano/preprod/node.socket
 CARDANO_NODE_MAGIC=1
 
 # Raiz do projeto (onde fica a pasta assets/)
-PROJECT_ROOT=/home/<seu-usuario>/Desktop/unb/greentoken-cardano
+PROJECT_ROOT=/home/<seu-usuario>/caminho/para/greentoken-cardano
 
 # Servidor
 PORT=3000
@@ -408,72 +392,97 @@ npm run dev
 curl http://localhost:3000/health
 ```
 
-Resposta esperada: `{"status":"ok"}`
+Resposta esperada: `{"status":"ok","db":"connected"}`
 
 ---
 
 ## 10. Testar o fluxo completo
 
-### 10.1 Criar um usuário via script
+### 10.1 Criar/importar um usuário
+
+**Opção A — Importar carteira externa (Lace, Nami, etc.):**
 
 ```bash
-cd ~/Desktop/unb/greentoken-cardano
-export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
-export CARDANO_NODE_MAGIC=1
-
-scripts/create-user.sh user-teste
+scripts/import-user.sh user1 addr_test1q... "Nome do Usuário" "email@test.com"
 ```
 
-Anote o endereço e o pubkey hash exibidos.
+O script extrai o pubkey hash automaticamente do endereço, salva os dados localmente e no banco de dados.
 
-### 10.2 Enviar tADA ao usuário (necessário para receber tokens)
-
-Solicite tADA para o endereço do usuário no faucet, ou transfira do operador.
-
-### 10.3 Criar uma garrafa via API
+**Opção B — Gerar via cardano-cli:**
 
 ```bash
-# Primeiro, cadastre o usuário no banco
+scripts/create-user.sh user1 "Nome" "email@test.com"
+```
+
+Gera chaves locais e insere no banco.
+
+**Opção C — Via API:**
+
+```bash
 curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
   -d '{
     "role": "recycler",
     "name": "Teste",
     "email": "teste@test.com",
-    "wallet_address": "<ENDERECO_DO_USUARIO>",
+    "wallet_address": "<ENDERECO>",
     "pubkey_hash": "<PUBKEY_HASH>"
-  }'
-
-# Anote o "id" (UUID) retornado, depois:
-curl -X POST http://localhost:3000/bottles \
-  -H "Content-Type: application/json" \
-  -d '{
-    "bottle_id": "garrafa-001",
-    "user_id": "<UUID_DO_USUARIO>"
   }'
 ```
 
-### 10.4 Acompanhar a confirmação
+### 10.2 Criar uma garrafa
+
+**Via script (grava na blockchain + banco):**
+
+```bash
+scripts/create-bottle.sh garrafa-001 user1
+```
+
+**Via API:**
+
+```bash
+curl -X POST http://localhost:3000/bottles \
+  -H "Content-Type: application/json" \
+  -d '{"bottle_id": "garrafa-001", "user_id": "<UUID>"}'
+```
+
+### 10.3 Acompanhar a confirmação
 
 O confirmation worker verifica a cada 15 segundos. Observe os logs do backend:
 
 ```
-[worker] Verificando 1 tx(s) pendente(s)...
 [worker] Tx abc123... confirmada — garrafa garrafa-001 → inserted
 ```
 
-### 10.5 Avançar o estágio
+Ou consulte via API:
 
 ```bash
-curl -X POST http://localhost:3000/bottles/<UUID_DA_GARRAFA>/advance \
+curl http://localhost:3000/bottles/<UUID>
+```
+
+Quando confirmado, `utxo_hash` será preenchido e uma recompensa de 10 Greentoken será registrada.
+
+### 10.4 Avançar o estágio
+
+**Via script:**
+
+```bash
+# Use o TX_HASH#0 exibido pelo create-bottle.sh
+scripts/advance-stage.sh compacted garrafa-001 "$USER_ADDR" "$TX_HASH#0"
+```
+
+**Via API:**
+
+```bash
+curl -X POST http://localhost:3000/bottles/<UUID>/advance \
   -H "Content-Type: application/json" \
   -d '{"stage": "compacted"}'
 ```
 
-### 10.6 Verificar recompensas
+### 10.5 Verificar recompensas
 
 ```bash
-curl http://localhost:3000/users/<UUID_DO_USUARIO>/rewards
+curl http://localhost:3000/users/<UUID>/rewards
 ```
 
 ---
@@ -492,10 +501,11 @@ export CARDANO_NODE_MAGIC=1
 | Script | Descrição | Uso |
 |--------|-----------|-----|
 | `scripts/setup-wallet.sh` | Gera chaves do operador | `scripts/setup-wallet.sh` |
-| `scripts/setup-policy.sh` | Gera chaves da minting policy | `scripts/setup-policy.sh` |
-| `scripts/create-user.sh` | Cria um novo usuário | `scripts/create-user.sh <USER_ID>` |
-| `scripts/create-bottle.sh` | Cria uma garrafa no contrato | `scripts/create-bottle.sh <BOTTLE_ID> <USER_ID>` |
-| `scripts/advance-stage.sh` | Avança estágio de uma garrafa | `scripts/advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
+| `scripts/setup-policy.sh` | Gera minting policy | `scripts/setup-policy.sh` |
+| `scripts/import-user.sh` | Importa carteira externa | `scripts/import-user.sh <ID> <ADDR> [NOME] [EMAIL]` |
+| `scripts/create-user.sh` | Cria usuário (cardano-cli) | `scripts/create-user.sh <ID> [NOME] [EMAIL]` |
+| `scripts/create-bottle.sh` | Cria garrafa (blockchain + banco) | `scripts/create-bottle.sh <BOTTLE_ID> <USER_ID>` |
+| `scripts/advance-stage.sh` | Avança estágio | `scripts/advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
 | `scripts/query-bottle.sh` | Consulta UTxOs no script | `scripts/query-bottle.sh [TX_HASH]` |
 | `scripts/query-balance.sh` | Consulta saldo | `scripts/query-balance.sh [ADDR\|USER_ID]` |
 
@@ -507,9 +517,6 @@ cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/n
 
 # Consultar UTxOs de um endereço
 cardano-cli conway query utxo --address <ADDR> --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket
-
-# Consultar parâmetros do protocolo
-cardano-cli conway query protocol-parameters --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket --out-file assets/pp.json
 ```
 
 ---
@@ -518,17 +525,17 @@ cardano-cli conway query protocol-parameters --testnet-magic 1 --socket-path ~/c
 
 ### Nó não inicia — `GenesisHashMismatch`
 
-O hash no `config.json` não corresponde ao arquivo genesis baixado. O nó exibe uma mensagem como:
+O hash no `config.json` não corresponde ao arquivo genesis baixado. O nó exibe:
 
 ```
 GenesisHashMismatch "hash_esperado" "hash_calculado"
 ```
 
-Use o **primeiro** valor (`hash_esperado`) e atualize o campo correspondente no `config.json` (ex: `ConwayGenesisHash`).
+Use o **primeiro** valor (`hash_esperado`) e atualize o campo correspondente no `config.json`.
 
 ### Nó não inicia — `NoDbMarkerAndNotEmpty`
 
-O diretório `db/` contém dados corrompidos de uma tentativa anterior. Limpe e recomeçe:
+O diretório `db/` contém dados corrompidos. Limpe e recomeçe:
 
 ```bash
 rm -rf ~/cardano/preprod/db
@@ -538,7 +545,7 @@ mkdir ~/cardano/preprod/db
 
 ### Nó não inicia — `TraceOptions` / `UseTraceDispatcher`
 
-Versões recentes do cardano-node (10.x) exigem estes campos no `config.json`. Adicione:
+Versões recentes do cardano-node (10.x) exigem estes campos no `config.json`:
 
 ```json
 "UseTraceDispatcher": false,
@@ -550,8 +557,6 @@ Versões recentes do cardano-node (10.x) exigem estes campos no `config.json`. A
 
 ### `cardano-cli: command not found`
 
-Os binários não estão no PATH:
-
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 # Adicione ao ~/.bashrc para persistir
@@ -559,42 +564,31 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### `connect: does not exist (No such file or directory)` (socket)
 
-O nó não está rodando ou o caminho do socket está errado:
+O nó não está rodando ou o socket ainda não foi criado. Após iniciar o nó, aguarde ~10 segundos:
 
 ```bash
-# Verificar se o nó está rodando
-ps aux | grep cardano-node
-
-# Verificar se o socket existe
-ls -la ~/cardano/preprod/node.socket
-
-# Iniciar o nó
-nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 &
+cardano-start
+sleep 10
+cardano-status
 ```
 
-### Backend não conecta no PostgreSQL — `password authentication failed`
+### `cardano-cli` retorna JSON inesperado
 
-Verifique a senha e o DATABASE_URL:
+O cardano-cli 10.x mudou o output padrão para JSON em vários comandos. Os scripts do projeto já tratam esse formato. Para consultas manuais com formato texto:
 
 ```bash
-# Testar conexão diretamente
+cardano-cli conway query utxo --address <ADDR> --testnet-magic 1 \
+  --socket-path ~/cardano/preprod/node.socket --output-text
+```
+
+### Backend não conecta no PostgreSQL
+
+```bash
+# Testar conexão
 psql -U postgres -d greentoken_db -c "SELECT 1;"
 
-# Se necessário, redefinir a senha
+# Redefinir senha se necessário
 sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'novasenha';"
-```
-
-### Mithril download — arquivo de 9 bytes
-
-O link direto `mithril-client-linux-x64` pode ser um redirecionamento. Baixe o `.tar.gz` da página de releases:
-
-```bash
-# Verificar tamanho do arquivo
-ls -la mithril-client
-# Se < 1MB, o download falhou
-
-# Baixar manualmente da página de releases
-# https://github.com/input-output-hk/mithril/releases
 ```
 
 ### Transação falha — `UTxO balance insufficient`
@@ -603,5 +597,14 @@ O operador não tem tADA suficiente:
 
 ```bash
 scripts/query-balance.sh
-# Se vazio ou < 5 ADA, solicite mais no faucet
+# Se < 5 ADA, envie mais tADA via faucet ou carteira Lace
+```
+
+### Mithril download — arquivo de 9 bytes
+
+O link direto `mithril-client-linux-x64` pode ser um redirecionamento. Baixe o `.tar.gz` da página de releases:
+
+```bash
+ls -la mithril-client
+# Se < 1MB, o download falhou — baixe o .tar.gz manualmente
 ```

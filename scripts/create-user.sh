@@ -9,11 +9,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+source "${SCRIPT_DIR}/_db-helper.sh"
+
 USER_ID="$1"
+USER_NAME="${2:-$USER_ID}"
+USER_EMAIL="${3:-${USER_ID}@greentoken.local}"
 
 if [ -z "$USER_ID" ]; then
-  echo "Uso: $0 <USER_ID>"
-  echo "Exemplo: $0 user3"
+  echo "Uso: $0 <USER_ID> [NOME] [EMAIL]"
+  echo "Exemplo: $0 user3 \"Maria\" maria@email.com"
   exit 1
 fi
 
@@ -58,4 +62,13 @@ cat "$USER_ADDR"
 echo
 echo "Pubkey hash:"
 echo "$USER_PKH"
-echo
+echo ""
+
+# Salvar no banco de dados
+USER_ADDR_VAL=$(cat "$USER_ADDR")
+load_db_url && {
+  DB_ID=$(db_exec "INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
+    VALUES ('recycler', '$USER_NAME', '$USER_EMAIL', '$USER_ADDR_VAL', '$USER_PKH')
+    RETURNING id;")
+  echo "[db] Usuario salvo no banco (id: $DB_ID)"
+}
