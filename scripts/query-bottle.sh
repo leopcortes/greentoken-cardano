@@ -3,8 +3,8 @@
 # Util para encontrar o BOTTLE_TX_IN necessario no advance-stage.sh.
 #
 # Uso:
-#   ./query-bottle.sh                 — lista todos os UTxOs no script
-#   ./query-bottle.sh <TX_HASH>       — filtra por tx hash especifico
+#   ./query-bottle.sh                 - lista todos os UTxOs no script
+#   ./query-bottle.sh <TX_HASH>       - filtra por tx hash especifico
 
 set -e
 

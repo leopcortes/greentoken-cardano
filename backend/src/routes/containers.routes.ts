@@ -4,7 +4,7 @@ import * as containerService from '../services/container.service'
 
 export const router = Router()
 
-// GET /containers — lista containers (opcional ?status=, ?owner_id=)
+// GET /containers - lista containers (opcional ?status=, ?owner_id=)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined
@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-// GET /containers/:id — detalhe de um container
+// GET /containers/:id - detalhe de um container
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const container = await containersDb.findById(req.params.id as string)
@@ -34,7 +34,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// POST /containers — cria um novo container
+// POST /containers - cria um novo container
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { owner_id, name, location_name, latitude, longitude, capacity_liters } = req.body
@@ -50,7 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-// POST /containers/:id/deposit — registra volume depositado
+// POST /containers/:id/deposit - registra volume depositado
 router.post('/:id/deposit', async (req: Request, res: Response) => {
   try {
     const { liters } = req.body
@@ -64,7 +64,7 @@ router.post('/:id/deposit', async (req: Request, res: Response) => {
   }
 })
 
-// POST /containers/:id/collected — marca container como coletado (esvaziado)
+// POST /containers/:id/collected - marca container como coletado (esvaziado)
 router.post('/:id/collected', async (req: Request, res: Response) => {
   try {
     await containerService.markCollected(req.params.id as string)
@@ -74,7 +74,7 @@ router.post('/:id/collected', async (req: Request, res: Response) => {
   }
 })
 
-// GET /containers/full — lista containers cheios (prontos para rota)
+// GET /containers/full - lista containers cheios (prontos para rota)
 router.get('/status/full', async (_req: Request, res: Response) => {
   try {
     const containers = await containerService.listFull()

@@ -11,6 +11,7 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 | **On-chain** | Haskell / Plutus V2 | Smart contract que valida transições de estágio |
 | **Off-chain** | Bash + cardano-cli | Scripts para operar diretamente na blockchain |
 | **Backend** | Node.js + TypeScript + PostgreSQL | API REST que integra blockchain e banco de dados |
+| **Frontend** | React + TypeScript + Vite + TailwindCSS | Dashboard web para gerenciar o sistema |
 
 ### Fluxo de integração
 
@@ -64,6 +65,18 @@ greentoken-cardano/
 │   ├── redeemers/                    # Redeemers para cada transição de estágio
 │   ├── wallet/                       # Endereço do operador e do script Plutus
 │   └── users/                        # Endereços e chaves dos usuários
+├── frontend/
+│   ├── src/
+│   │   ├── components/ui/            # Componentes shadcn (Radix + Tailwind)
+│   │   ├── hooks/                    # Custom hooks (useSortable)
+│   │   ├── lib/                      # Utilitários (truncateMiddle)
+│   │   ├── pages/                    # Páginas (Bottles, Users, Containers, Routes)
+│   │   ├── services/api.ts           # Cliente HTTP tipado para a API REST
+│   │   ├── App.tsx                   # Layout principal com abas
+│   │   └── index.css                 # Tema verde Tailwind + variáveis CSS
+│   ├── vite.config.ts                # Vite + proxy /api → backend:3000
+│   ├── tailwind.config.js            # Tailwind v3 + tokens shadcn
+│   └── package.json
 ├── backend/
 │   ├── db/schema.sql                 # Schema PostgreSQL (DDL + seed)
 │   ├── src/                          # Backend Node.js/TypeScript
@@ -136,6 +149,13 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 | `POST` | `/containers/:id/deposit` | Registra volume depositado |
 | `POST` | `/containers/:id/collected` | Marca como coletado |
 | `GET` | `/containers/status/full` | Containers cheios (prontos para rota) |
+| `GET` | `/trucks` | Lista caminhões |
+| `POST` | `/trucks` | Cadastra caminhão (`license_plate`) |
+| `PATCH` | `/trucks/:id/status` | Atualiza status do caminhão |
+| `GET` | `/routes` | Lista rotas de coleta |
+| `POST` | `/routes` | Cria rota (truck_id + container_ids) |
+| `GET` | `/routes/:id` | Detalhe da rota com paradas |
+| `POST` | `/routes/stops/:stopId/collect` | Marca parada como coletada |
 
 ---
 
@@ -143,13 +163,13 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 
 Schema com 8 tabelas (`backend/db/schema.sql`):
 
-- **`users`** — recicladores e donos de pontos de coleta
-- **`containers`** — pontos físicos de coleta (volume, status)
-- **`trucks`** — frota de caminhões
-- **`routes`** / **`route_stops`** — rotas de coleta
-- **`bottles`** — espelha os estágios do contrato Plutus (`utxo_hash` + `utxo_index`)
-- **`blockchain_txs`** — log de auditoria de todas as transações
-- **`rewards`** — registro de Greentoken enviados por estágio
+- **`users`** - recicladores e donos de pontos de coleta
+- **`containers`** - pontos físicos de coleta (volume, status)
+- **`trucks`** - frota de caminhões
+- **`routes`** / **`route_stops`** - rotas de coleta
+- **`bottles`** - espelha os estágios do contrato Plutus (`utxo_hash` + `utxo_index`)
+- **`blockchain_txs`** - log de auditoria de todas as transações
+- **`rewards`** - registro de Greentoken enviados por estágio
 
 ---
 
@@ -175,18 +195,47 @@ cat assets/wallet/payment.addr
 cardano-start
 cd backend && cp .env.example .env && npm install && npm run dev
 
-# 5. Importar carteira e criar garrafa
+# 5. Iniciar o frontend
+cd frontend && npm install && npm run dev
+# Acesse http://localhost:5173
+
+# 6. Importar carteira e criar garrafa
 scripts/import-user.sh user1 addr_test1q... "Nome" "email@test.com"
 scripts/create-bottle.sh garrafa-001 user1
 ```
 
 ---
 
+## Frontend (Dashboard)
+
+Dashboard web construído com **React + TypeScript + Vite + TailwindCSS v3 + shadcn/ui** (componentes Radix UI).
+
+### Funcionalidades
+
+- **4 abas**: Garrafas, Usuários, Containers, Rotas/Caminhões
+- **CRUD completo**: criar e visualizar registros de cada entidade via interface gráfica
+- **Avanço de estágio**: botão para avançar garrafas no ciclo `inserted → shredded` (submete transação na blockchain via API)
+- **Rotas de coleta**: selecionar caminhão + containers cheios, criar rota, coletar paradas individualmente
+- **Recompensas**: dialog para visualizar recompensas Greentoken de cada usuário
+- **UX aprimorada**: botões de copiar, colunas ordenáveis, truncamento inteligente de endereços, mensagens de erro formatadas
+
+### Execução
+
+```bash
+cd frontend
+npm install
+npm run dev    # http://localhost:5173
+```
+
+O Vite faz proxy de `/api/*` para `http://localhost:3000` (backend). O backend precisa estar rodando.
+
+---
+
 ## Próximos Passos
 
-- [ ] Implementar lógica de rotas de caminhão (container `full` → `route_stop` automático)
+- [x] Frontend web para recicladores e owners
+- [x] Implementar lógica de rotas de caminhão (CRUD de caminhões, criação de rotas, coleta de paradas)
 - [ ] Adicionar autenticação na API (JWT ou API keys)
 - [ ] Testes automatizados para o backend
-- [ ] Frontend web para recicladores e owners
 - [ ] Migrar de `child_process` para `cardano-serialization-lib`
 - [ ] Deploy em produção (mainnet)

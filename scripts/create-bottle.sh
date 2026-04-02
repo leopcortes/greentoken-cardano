@@ -167,7 +167,7 @@ cardano-cli conway transaction sign \
   --out-file "$SIGNED_FILE"
 
 # Extrai o tx hash (necessario para rastrear a transacao)
-# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} — extrair apenas o hash
+# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} - extrair apenas o hash
 TX_HASH_RAW=$(cardano-cli conway transaction txid --tx-file "$SIGNED_FILE")
 TX_HASH=$(echo "$TX_HASH_RAW" | grep -oP '"txhash"\s*:\s*"\K[^"]+' || echo "$TX_HASH_RAW")
 

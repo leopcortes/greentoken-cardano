@@ -41,7 +41,7 @@ cardano-cli address key-gen \
 KEY_HASH=$(cardano-cli address key-hash \
   --payment-verification-key-file "$VKEY")
 
-# 3. Gerar o native script (assinatura simples — quem possui a skey pode mintar)
+# 3. Gerar o native script (assinatura simples - quem possui a skey pode mintar)
 cat > "$SCRIPT" <<EOF
 {
   "keyHash": "$KEY_HASH",

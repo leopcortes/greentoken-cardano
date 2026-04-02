@@ -2,9 +2,9 @@
 # Script para consultar o saldo de um endereco.
 #
 # Uso:
-#   ./query-balance.sh                    — mostra saldo do operador
-#   ./query-balance.sh <ENDERECO>         — mostra saldo de qualquer endereco
-#   ./query-balance.sh user1              — mostra saldo do usuario user1
+#   ./query-balance.sh                    - mostra saldo do operador
+#   ./query-balance.sh <ENDERECO>         - mostra saldo de qualquer endereco
+#   ./query-balance.sh user1              - mostra saldo do usuario user1
 
 set -e
 
@@ -36,7 +36,7 @@ elif [[ "$TARGET" == addr_* ]]; then
   ADDRESS="$TARGET"
   echo "Saldo do endereco:"
 else
-  # Argumento eh um user ID — busca em assets/users/
+  # Argumento eh um user ID - busca em assets/users/
   ADDR_FILE="assets/users/${TARGET}/${TARGET}.addr"
   if [ ! -f "$ADDR_FILE" ]; then
     echo "Endereco do usuario nao encontrado: $ADDR_FILE"

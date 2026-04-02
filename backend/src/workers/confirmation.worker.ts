@@ -42,7 +42,7 @@ async function processTransaction(tx: txsDb.BlockchainTx): Promise<void> {
     })
   }
 
-  console.log(`[worker] Tx ${tx.tx_hash} confirmada — garrafa ${bottle.bottle_id_text} → ${tx.stage}`)
+  console.log(`[worker] Tx ${tx.tx_hash} confirmada - garrafa ${bottle.bottle_id_text} → ${tx.stage}`)
 }
 
 /**

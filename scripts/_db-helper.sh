@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Helper compartilhado para integrar os scripts bash com o PostgreSQL.
-# Sourced pelos demais scripts — nao deve ser executado diretamente.
+# Sourced pelos demais scripts - nao deve ser executado diretamente.
 
 # Carrega DATABASE_URL do backend/.env
 # Retorna 1 se nao encontrar (scripts continuam sem gravar no banco)

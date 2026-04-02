@@ -165,7 +165,7 @@ cardano-cli conway transaction sign \
   --out-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed"
 
 # Extrai o tx hash
-# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} — extrair apenas o hash
+# cardano-cli 10.x retorna JSON: {"txhash":"abc..."} - extrair apenas o hash
 TX_HASH_RAW=$(cardano-cli conway transaction txid \
   --tx-file "assets/txs/tx-advance-${BOTTLE_ID}-${STAGE}.signed")
 TX_HASH=$(echo "$TX_HASH_RAW" | grep -oP '"txhash"\s*:\s*"\K[^"]+' || echo "$TX_HASH_RAW")

@@ -1,6 +1,6 @@
-# Configuração do Ambiente Local — Greentoken Cardano
+# Configuração do Ambiente Local - Greentoken Cardano
 
-Guia passo a passo para configurar o ambiente de desenvolvimento local com cardano-node, cardano-cli, PostgreSQL e o backend Node.js na rede **Preprod** (testnet).
+Guia passo a passo para configurar o ambiente de desenvolvimento local com cardano-node, cardano-cli, PostgreSQL, backend Node.js e frontend React na rede **Preprod** (testnet).
 
 ---
 
@@ -15,9 +15,10 @@ Guia passo a passo para configurar o ambiente de desenvolvimento local com carda
 7. [Gerar chaves do operador e da policy](#7-gerar-chaves-do-operador-e-da-policy)
 8. [Obter tADA (ADA de teste)](#8-obter-tada-ada-de-teste)
 9. [Configurar e iniciar o backend](#9-configurar-e-iniciar-o-backend)
-10. [Testar o fluxo completo](#10-testar-o-fluxo-completo)
-11. [Comandos úteis](#11-comandos-úteis)
-12. [Solução de problemas](#12-solução-de-problemas)
+10. [Configurar e iniciar o frontend](#10-configurar-e-iniciar-o-frontend)
+11. [Testar o fluxo completo](#11-testar-o-fluxo-completo)
+12. [Comandos úteis](#12-comandos-úteis)
+13. [Solução de problemas](#13-solução-de-problemas)
 
 ---
 
@@ -363,7 +364,7 @@ cp .env.example .env
 Edite o `.env`:
 
 ```env
-# PostgreSQL — ajuste a senha
+# PostgreSQL - ajuste a senha
 DATABASE_URL=postgresql://postgres:suasenha@localhost:5432/greentoken_db
 
 # Cardano Node
@@ -396,11 +397,57 @@ Resposta esperada: `{"status":"ok","db":"connected"}`
 
 ---
 
-## 10. Testar o fluxo completo
+## 10. Configurar e iniciar o frontend
 
-### 10.1 Criar/importar um usuário
+O frontend é um dashboard React que consome a API REST do backend.
 
-**Opção A — Importar carteira externa (Lace, Nami, etc.):**
+### 10.1 Pré-requisitos do frontend
+
+O frontend usa **Vite 5** + **TailwindCSS v3**, compatível com Node.js 18+. As mesmas dependências de Node.js do backend são suficientes.
+
+### 10.2 Instalar dependências
+
+```bash
+cd frontend
+npm install
+```
+
+### 10.3 Iniciar o servidor de desenvolvimento
+
+```bash
+npm run dev
+```
+
+O frontend estará disponível em **http://localhost:5173**.
+
+### 10.4 Proxy para o backend
+
+O Vite está configurado para redirecionar chamadas `/api/*` para `http://localhost:3000` (backend). Não é necessário configurar CORS - basta que o backend esteja rodando na porta 3000.
+
+### 10.5 Funcionalidades do dashboard
+
+| Aba | Funcionalidades |
+|-----|----------------|
+| **Garrafas** | Listar, criar garrafas, avançar estágio (blockchain), ver UTXO |
+| **Usuários** | Listar, criar usuários, ver recompensas Greentoken |
+| **Containers** | Listar, criar containers, barra de volume visual |
+| **Rotas** | Cadastrar caminhões, criar rotas de coleta, coletar paradas |
+
+### 10.6 Stack técnica
+
+- **React 18** + TypeScript
+- **Vite 5** (bundler, compatível com Node 18)
+- **TailwindCSS v3** + PostCSS (Tailwind v4 requer Node 20+)
+- **shadcn/ui** (componentes escritos manualmente com Radix UI para compatibilidade com Tailwind v3)
+- **lucide-react** (ícones)
+
+---
+
+## 11. Testar o fluxo completo
+
+### 11.1 Criar/importar um usuário
+
+**Opção A - Importar carteira externa (Lace, Nami, etc.):**
 
 ```bash
 scripts/import-user.sh user1 addr_test1q... "Nome do Usuário" "email@test.com"
@@ -408,7 +455,7 @@ scripts/import-user.sh user1 addr_test1q... "Nome do Usuário" "email@test.com"
 
 O script extrai o pubkey hash automaticamente do endereço, salva os dados localmente e no banco de dados.
 
-**Opção B — Gerar via cardano-cli:**
+**Opção B - Gerar via cardano-cli:**
 
 ```bash
 scripts/create-user.sh user1 "Nome" "email@test.com"
@@ -416,7 +463,7 @@ scripts/create-user.sh user1 "Nome" "email@test.com"
 
 Gera chaves locais e insere no banco.
 
-**Opção C — Via API:**
+**Opção C - Via API:**
 
 ```bash
 curl -X POST http://localhost:3000/users \
@@ -430,7 +477,7 @@ curl -X POST http://localhost:3000/users \
   }'
 ```
 
-### 10.2 Criar uma garrafa
+### 11.2 Criar uma garrafa
 
 **Via script (grava na blockchain + banco):**
 
@@ -446,12 +493,12 @@ curl -X POST http://localhost:3000/bottles \
   -d '{"bottle_id": "garrafa-001", "user_id": "<UUID>"}'
 ```
 
-### 10.3 Acompanhar a confirmação
+### 11.3 Acompanhar a confirmação
 
 O confirmation worker verifica a cada 15 segundos. Observe os logs do backend:
 
 ```
-[worker] Tx abc123... confirmada — garrafa garrafa-001 → inserted
+[worker] Tx abc123... confirmada - garrafa garrafa-001 → inserted
 ```
 
 Ou consulte via API:
@@ -462,7 +509,7 @@ curl http://localhost:3000/bottles/<UUID>
 
 Quando confirmado, `utxo_hash` será preenchido e uma recompensa de 10 Greentoken será registrada.
 
-### 10.4 Avançar o estágio
+### 11.4 Avançar o estágio
 
 **Via script:**
 
@@ -479,15 +526,40 @@ curl -X POST http://localhost:3000/bottles/<UUID>/advance \
   -d '{"stage": "compacted"}'
 ```
 
-### 10.5 Verificar recompensas
+### 11.5 Verificar recompensas
 
 ```bash
 curl http://localhost:3000/users/<UUID>/rewards
 ```
 
+### 11.6 Testar caminhões e rotas
+
+```bash
+# Cadastrar caminhão
+curl -X POST http://localhost:3000/trucks \
+  -H "Content-Type: application/json" \
+  -d '{"license_plate": "GRN-0001"}'
+
+# Criar rota de coleta (associa caminhão a containers cheios)
+curl -X POST http://localhost:3000/routes \
+  -H "Content-Type: application/json" \
+  -d '{"truck_id": "<TRUCK_UUID>", "container_ids": ["<CONTAINER_UUID>"]}'
+
+# Marcar parada como coletada
+curl -X POST http://localhost:3000/routes/stops/<STOP_UUID>/collect
+```
+
+### 11.7 Testar via frontend
+
+1. Acesse **http://localhost:5173** (com backend rodando)
+2. Na aba **Usuários**, crie um usuário com wallet address e pubkey hash
+3. Na aba **Garrafas**, crie uma garrafa e avance os estágios
+4. Na aba **Containers**, crie um container e observe a barra de volume
+5. Na aba **Rotas**, cadastre um caminhão, crie uma rota e colete as paradas
+
 ---
 
-## 11. Comandos úteis
+## 12. Comandos úteis
 
 ### Variáveis de ambiente (adicionar ao ~/.bashrc)
 
@@ -521,9 +593,9 @@ cardano-cli conway query utxo --address <ADDR> --testnet-magic 1 --socket-path ~
 
 ---
 
-## 12. Solução de problemas
+## 13. Solução de problemas
 
-### Nó não inicia — `GenesisHashMismatch`
+### Nó não inicia - `GenesisHashMismatch`
 
 O hash no `config.json` não corresponde ao arquivo genesis baixado. O nó exibe:
 
@@ -533,7 +605,7 @@ GenesisHashMismatch "hash_esperado" "hash_calculado"
 
 Use o **primeiro** valor (`hash_esperado`) e atualize o campo correspondente no `config.json`.
 
-### Nó não inicia — `NoDbMarkerAndNotEmpty`
+### Nó não inicia - `NoDbMarkerAndNotEmpty`
 
 O diretório `db/` contém dados corrompidos. Limpe e recomeçe:
 
@@ -543,7 +615,7 @@ mkdir ~/cardano/preprod/db
 # Se usou Mithril, baixe o snapshot novamente
 ```
 
-### Nó não inicia — `TraceOptions` / `UseTraceDispatcher`
+### Nó não inicia - `TraceOptions` / `UseTraceDispatcher`
 
 Versões recentes do cardano-node (10.x) exigem estes campos no `config.json`:
 
@@ -591,7 +663,7 @@ psql -U postgres -d greentoken_db -c "SELECT 1;"
 sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'novasenha';"
 ```
 
-### Transação falha — `UTxO balance insufficient`
+### Transação falha - `UTxO balance insufficient`
 
 O operador não tem tADA suficiente:
 
@@ -600,11 +672,11 @@ scripts/query-balance.sh
 # Se < 5 ADA, envie mais tADA via faucet ou carteira Lace
 ```
 
-### Mithril download — arquivo de 9 bytes
+### Mithril download - arquivo de 9 bytes
 
 O link direto `mithril-client-linux-x64` pode ser um redirecionamento. Baixe o `.tar.gz` da página de releases:
 
 ```bash
 ls -la mithril-client
-# Se < 1MB, o download falhou — baixe o .tar.gz manualmente
+# Se < 1MB, o download falhou - baixe o .tar.gz manualmente
 ```

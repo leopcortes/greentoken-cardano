@@ -4,7 +4,7 @@ import * as bottlesDb from '../db/queries/bottles'
 
 export const router = Router()
 
-// GET /bottles — lista garrafas (opcional ?user_id=, ?stage=, ?container_id=)
+// GET /bottles - lista garrafas (opcional ?user_id=, ?stage=, ?container_id=)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { user_id, stage, container_id } = req.query
@@ -16,7 +16,10 @@ router.get('/', async (req: Request, res: Response) => {
     } else if (container_id) {
       bottles = await bottlesDb.findByContainerId(container_id as string)
     } else {
-      bottles = await bottlesDb.findByStage('inserted')
+      const { rows } = await (await import('../db/pool')).pool.query(
+        'SELECT * FROM bottles ORDER BY inserted_at DESC'
+      )
+      bottles = rows
     }
     res.json(bottles)
   } catch (err: any) {
@@ -24,7 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-// GET /bottles/:id — detalhe + historico de uma garrafa
+// GET /bottles/:id - detalhe + historico de uma garrafa
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const history = await bottleService.getHistory(req.params.id as string)
@@ -37,7 +40,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// POST /bottles — cria uma nova garrafa e submete tx de mint
+// POST /bottles - cria uma nova garrafa e submete tx de mint
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { bottle_id, user_id, container_id } = req.body
@@ -61,7 +64,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-// POST /bottles/:id/advance — avanca a garrafa para o proximo estagio
+// POST /bottles/:id/advance - avanca a garrafa para o proximo estagio
 router.post('/:id/advance', async (req: Request, res: Response) => {
   try {
     const { stage } = req.body
