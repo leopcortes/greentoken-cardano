@@ -1,4 +1,5 @@
 import * as containersDb from '../db/queries/containers'
+import * as bottleService from './bottle.service'
 import { validateUUID } from '../validate'
 
 /**
@@ -26,6 +27,14 @@ export async function addVolume(containerId: string, liters: number) {
   }
 
   return updated
+}
+
+/**
+ * Compacta todas as garrafas inserted de um container.
+ * Container precisa estar >= 90% cheio.
+ */
+export async function compact(containerId: string) {
+  return bottleService.compactContainer(containerId)
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import * as routesDb from '../db/queries/routes'
+import * as bottleService from '../services/bottle.service'
 
 export const router = Router()
 
@@ -25,26 +26,62 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// POST /routes - cria uma nova rota
+// POST /routes - cria uma nova rota (agora aceita station_id como destino)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { truck_id, container_ids } = req.body
+    const { truck_id, station_id, container_ids } = req.body
     if (!truck_id || !container_ids || !Array.isArray(container_ids) || container_ids.length === 0) {
       return res.status(400).json({ error: 'Campos obrigatorios: truck_id, container_ids (array)' })
     }
-    const route = await routesDb.create({ truck_id, container_ids })
+    const route = await routesDb.create({ truck_id, station_id, container_ids })
     res.status(201).json(route)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
 })
 
-// POST /routes/stops/:stopId/collect - marca parada como coletada
+// POST /routes/stops/:stopId/collect - coleta parada: move garrafas compacted -> collected
 router.post('/stops/:stopId/collect', async (req: Request, res: Response) => {
   try {
-    await routesDb.completeStop(req.params.stopId as string)
-    res.json({ message: 'Parada coletada com sucesso' })
+    // 1. Marca parada como coletada no banco (atualiza rota/caminhao se necessario)
+    const { routeId, containerId } = await routesDb.completeStop(req.params.stopId as string)
+
+    // 2. Move garrafas compacted do container para a rota
+    const result = await bottleService.collectContainer(containerId, routeId)
+
+    res.json({
+      message: `Parada coletada. ${result.collected} garrafa(s) movida(s) para a rota.`,
+      ...result,
+    })
   } catch (err: any) {
+    if (err.message.includes('nao compactada')) {
+      return res.status(400).json({ error: err.message })
+    }
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /routes/:id/deliver - entrega garrafas da rota em uma estacao
+router.post('/:id/deliver', async (req: Request, res: Response) => {
+  try {
+    const { station_id } = req.body
+    if (!station_id) {
+      return res.status(400).json({ error: 'Campo obrigatorio: station_id' })
+    }
+
+    // Atualiza station_id na rota se ainda nao estava definido
+    await routesDb.updateStationId(req.params.id as string, station_id)
+
+    const result = await bottleService.deliverToStation(req.params.id as string, station_id)
+
+    res.json({
+      message: `${result.delivered} garrafa(s) entregue(s) na estacao.`,
+      ...result,
+    })
+  } catch (err: any) {
+    if (err.message.includes('Nenhuma')) {
+      return res.status(400).json({ error: err.message })
+    }
     res.status(500).json({ error: err.message })
   }
 })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,11 +10,15 @@ import { Label } from '@/components/ui/label';
 import { CopyButton } from '@/components/ui/copy-button';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSortable } from '@/hooks/useSortable';
-import { getBottles, getUsers, createBottle, advanceBottle, type Bottle, type User } from '@/services/api';
+import {
+  getBottles, getUsers, getContainers, getNextBottleNumber,
+  createBottle,
+  type Bottle, type User, type Container,
+} from '@/services/api';
 import { truncateMiddle } from '@/lib/truncate';
-
-const STAGE_ORDER = ['inserted', 'compacted', 'collected', 'atstation', 'shredded'];
+import { STAGE_LABELS, ROLE_LABELS, t } from '@/lib/labels';
 
 const STAGE_COLORS: Record<string, string> = {
   inserted: 'bg-blue-100 text-blue-800',
@@ -29,10 +34,20 @@ export function BottlesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formBottleId, setFormBottleId] = useState('');
+
+  // Form state
   const [formUserId, setFormUserId] = useState('');
+  const [userError, setUserError] = useState('');
   const [formContainerId, setFormContainerId] = useState('');
+  const [containerError, setContainerError] = useState('');
+  const [formVolume, setFormVolume] = useState('500');
+  const [volumeError, setVolumeError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [nextName, setNextName] = useState('');
+
+  // Options for selects
+  const [userOptions, setUserOptions] = useState<User[]>([]);
+  const [containerOptions, setContainerOptions] = useState<Container[]>([]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortable<Bottle>(bottles);
 
@@ -54,74 +69,182 @@ export function BottlesPage() {
 
   useEffect(() => { fetchBottles(); }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
+  const openCreateDialog = async () => {
     try {
-      await createBottle({
-        bottle_id: formBottleId,
-        user_id: formUserId,
-        ...(formContainerId ? { container_id: formContainerId } : {}),
-      });
-      setDialogOpen(false);
-      setFormBottleId('');
+      const [usersData, containersData, nextNum] = await Promise.all([
+        getUsers(),
+        getContainers(),
+        getNextBottleNumber(),
+      ]);
+      setUserOptions(usersData);
+      setContainerOptions(containersData);
+      setNextName(nextNum.next_name);
       setFormUserId('');
       setFormContainerId('');
+      setFormVolume('500');
+      setUserError('');
+      setContainerError('');
+      setVolumeError('');
+      setDialogOpen(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados para formulário');
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    let hasError = false;
+
+    if (!formUserId) {
+      setUserError('Selecione um usuário.');
+      hasError = true;
+    } else {
+      setUserError('');
+    }
+
+    if (!formContainerId) {
+      setContainerError('Selecione um container.');
+      hasError = true;
+    } else {
+      setContainerError('');
+    }
+
+    if (!formVolume.trim() || Number(formVolume) <= 0) {
+      setVolumeError('O volume deve ser maior que zero.');
+      hasError = true;
+    } else if (formContainerId) {
+      const selected = containerOptions.find(c => c.id === formContainerId);
+      if (selected) {
+        const remainingLiters = selected.capacity_liters - selected.current_volume_liters;
+        const volumeLiters = Number(formVolume) / 1000;
+        if (volumeLiters > remainingLiters) {
+          setVolumeError(
+            `Container sem espaço suficiente. Disponível: ${(remainingLiters * 1000).toFixed(1)}ml (${remainingLiters.toFixed(1)}L).`
+          );
+          hasError = true;
+        } else {
+          setVolumeError('');
+        }
+      }
+    } else {
+      setVolumeError('');
+    }
+
+    if (hasError) return;
+
+    setSubmitting(true);
+    try {
+      const result = await createBottle({
+        user_id: formUserId,
+        container_id: formContainerId,
+        volume_ml: Number(formVolume),
+      });
+      toast.success(`Garrafa "${result.bottle.bottle_id_text}" criada. Aguardando confirmação on-chain.`, {
+        description: `tx: ${result.tx_hash}`,
+      });
+      setDialogOpen(false);
       fetchBottles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar garrafa');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar garrafa');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleAdvance = async (bottle: Bottle) => {
-    const next = nextStage(bottle.current_stage);
-    if (!next) return;
-    try {
-      await advanceBottle(bottle.id, next);
-      fetchBottles();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao avançar estágio');
-    }
-  };
-
-  const nextStage = (current: string) => {
-    const idx = STAGE_ORDER.indexOf(current);
-    return idx >= 0 && idx < STAGE_ORDER.length - 1 ? STAGE_ORDER[idx + 1] : null;
   };
 
   const SH = (label: string, key: keyof Bottle) => (
     <SortableHeader label={label} sortKey={key as string} currentKey={sortKey as string | null} direction={sortDir} onSort={() => toggleSort(key)} />
   );
 
+  const containersMap: Record<string, Container> = {};
+  for (const c of containerOptions) containersMap[c.id] = c;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Garrafas</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchBottles}>Atualizar</Button>
+          <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={fetchBottles}>Atualizar</Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">+ Nova Garrafa</Button>
+              <Button size="sm" onClick={openCreateDialog}>+ Nova Garrafa</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Criar Garrafa</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
+                {nextName && (
+                  <p className="text-sm text-muted-foreground">
+                    Próxima garrafa: <span className="font-mono font-medium text-foreground">{nextName}</span>
+                  </p>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="bottle-id">ID da Garrafa (texto)</Label>
-                  <Input id="bottle-id" value={formBottleId} onChange={e => setFormBottleId(e.target.value)} required placeholder="garrafa-001" />
+                  <Label>
+                    Usuário<span className="text-red-500">*</span>
+                  </Label>
+                  <SearchableSelect
+                    options={userOptions.map(u => ({
+                      value: u.id,
+                      label: u.name,
+                      detail: `${t(ROLE_LABELS, u.role)} - ${u.email}`,
+                    }))}
+                    value={formUserId}
+                    onValueChange={v => { setFormUserId(v); if (userError) setUserError(''); }}
+                    placeholder="Selecione um usuário..."
+                    searchPlaceholder="Buscar por nome ou email..."
+                    error={!!userError}
+                  />
+                  {userError && (
+                    <p className="text-sm font-medium text-red-500">{userError}</p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="bottle-user">ID do Usuário (UUID)</Label>
-                  <Input id="bottle-user" value={formUserId} onChange={e => setFormUserId(e.target.value)} required placeholder="UUID do usuario" />
+                  <Label>
+                    Container<span className="text-red-500">*</span>
+                  </Label>
+                  <SearchableSelect
+                    options={containerOptions
+                      .filter(c => c.current_volume_liters < c.capacity_liters)
+                      .map(c => ({
+                        value: c.id,
+                        label: c.name,
+                        detail: `${Number(c.current_volume_liters).toFixed(1)}/${Number(c.capacity_liters).toFixed(1)}L - ${c.location_name || 'Sem local'}`,
+                      }))}
+                    value={formContainerId}
+                    onValueChange={v => { setFormContainerId(v); if (containerError) setContainerError(''); }}
+                    placeholder="Selecione um container..."
+                    searchPlaceholder="Buscar por nome ou local..."
+                    error={!!containerError}
+                  />
+                  {containerError && (
+                    <p className="text-sm font-medium text-red-500">{containerError}</p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="bottle-container">ID do Container (opcional)</Label>
-                  <Input id="bottle-container" value={formContainerId} onChange={e => setFormContainerId(e.target.value)} placeholder="UUID do container" />
+                  <Label htmlFor="bottle-volume">
+                    Volume (ml)<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="bottle-volume"
+                    type="number"
+                    step="0.1"
+                    value={formVolume}
+                    onChange={e => {
+                      setFormVolume(e.target.value);
+                      if (volumeError) setVolumeError('');
+                    }}
+                    placeholder="500"
+                    className={volumeError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {volumeError && (
+                    <p className="text-sm font-medium text-red-500">{volumeError}</p>
+                  )}
                 </div>
+
                 <Button type="submit" disabled={submitting} className="w-full">
                   {submitting ? 'Criando...' : 'Criar'}
                 </Button>
@@ -139,17 +262,18 @@ export function BottlesPage() {
             {loading ? 'Carregando...' : `${bottles.length} garrafa(s) encontrada(s)`}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0">
+        <CardContent className="px-4 pb-2 pt-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{SH('Garrafa', 'bottle_id_text')}</TableHead>
                 <TableHead>{SH('Usuário', 'user_id')}</TableHead>
-                <TableHead>{SH('Estágio', 'current_stage')}</TableHead>
                 <TableHead>Container</TableHead>
+                <TableHead>Estação</TableHead>
+                <TableHead>{SH('Volume', 'volume_ml')}</TableHead>
+                <TableHead>{SH('Estágio', 'current_stage')}</TableHead>
                 <TableHead>UTXO</TableHead>
                 <TableHead>{SH('Inserida em', 'inserted_at')}</TableHead>
-                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,49 +284,66 @@ export function BottlesPage() {
                     <TableCell>
                       <div className="text-sm font-medium leading-tight">{bottle.bottle_id_text}</div>
                       <div className="flex items-center gap-0.5 mt-0.5">
-                        <span className="font-mono text-[11px] text-muted-foreground">{truncateMiddle(bottle.id, 30, 10)}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.id, 20, 5)}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.id, 8, 4)}</span>
                         <CopyButton className='ml-1' value={bottle.id} />
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium leading-tight">{user?.name ?? '-'}</div>
                       <div className="flex items-center gap-0.5 mt-0.5">
-                        <span className="font-mono text-[11px] text-muted-foreground">{truncateMiddle(bottle.user_id, 30, 10)}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.user_id, 20, 5)}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.user_id, 8, 4)}</span>
                         <CopyButton className='ml-1' value={bottle.user_id} />
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={STAGE_COLORS[bottle.current_stage] || ''}>
-                        {bottle.current_stage}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
                       {bottle.container_id ? (
-                        <div className="flex items-center gap-0.5">
-                          <span className="font-mono text-xs">{truncateMiddle(bottle.container_id, 30, 10)}</span>
-                          <CopyButton className='ml-1' value={bottle.container_id} />
+                        <div>
+                          <div className="text-sm leading-tight">{bottle.container_name}</div>
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            <span className="hidden 2xl:block font-mono text-[11px] text-muted-foreground">
+                              {truncateMiddle(bottle.container_id, 20, 5)}
+                            </span>
+                            <span className="block 2xl:hidden font-mono text-[11px] text-muted-foreground">
+                              {truncateMiddle(bottle.container_id, 8, 4)}
+                            </span>
+                            <CopyButton className='ml-1' value={bottle.container_id} />
+                          </div>
                         </div>
                       ) : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell>
+                      {bottle.station_id ? (
+                        <div>
+                          <div className="text-sm leading-tight">{bottle.station_name}</div>
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.station_id, 20, 5)}</span>
+                            <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.station_id, 8, 4)}</span>
+                            <CopyButton className='ml-1' value={bottle.station_id} />
+                          </div>
+                        </div>
+                      ) : <span className="text-muted-foreground">-</span>}
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {Number(bottle.volume_ml).toFixed(1)}ml
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={STAGE_COLORS[bottle.current_stage] || ''}>
+                        {t(STAGE_LABELS, bottle.current_stage)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       {bottle.utxo_hash ? (
                         <div className="flex items-center gap-0.5">
-                          <span className="font-mono text-xs">{truncateMiddle(bottle.utxo_hash, 50, 10)}#{bottle.utxo_index}</span>
+                          <span className="font-mono text-xs hidden 2xl:block">{truncateMiddle(bottle.utxo_hash, 20, 8)}#{bottle.utxo_index}</span>
+                          <span className="font-mono text-xs block 2xl:hidden">{truncateMiddle(bottle.utxo_hash, 15, 6)}#{bottle.utxo_index}</span>
                           <CopyButton className='ml-1' value={`${bottle.utxo_hash}#${bottle.utxo_index}`} />
                         </div>
                       ) : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(bottle.inserted_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      {nextStage(bottle.current_stage) ? (
-                        <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => handleAdvance(bottle)}>
-                          → {nextStage(bottle.current_stage)}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Completo</span>
-                      )}
                     </TableCell>
                   </TableRow>
                 );

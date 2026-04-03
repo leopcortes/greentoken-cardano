@@ -10,7 +10,11 @@ router.get('/', async (req: Request, res: Response) => {
     const status = req.query.status as string | undefined
     const ownerId = req.query.owner_id as string | undefined
     let containers
-    if (status) {
+    if (status === 'all') {
+      const { pool } = await import('../db/pool')
+      const { rows } = await pool.query('SELECT * FROM containers ORDER BY last_updated DESC')
+      containers = containersDb.parseRows(rows)
+    } else if (status) {
       containers = await containersDb.findByStatus(status)
     } else if (ownerId) {
       containers = await containersDb.findByOwnerId(ownerId)
@@ -70,6 +74,22 @@ router.post('/:id/collected', async (req: Request, res: Response) => {
     await containerService.markCollected(req.params.id as string)
     res.json({ message: 'Container esvaziado e reativado' })
   } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /containers/:id/compact - compacta garrafas inserted do container (>= 90% cheio)
+router.post('/:id/compact', async (req: Request, res: Response) => {
+  try {
+    const result = await containerService.compact(req.params.id as string)
+    res.json({
+      message: `${result.compacted} garrafa(s) compactada(s)`,
+      ...result,
+    })
+  } catch (err: any) {
+    if (err.message.includes('90%') || err.message.includes('Nenhuma')) {
+      return res.status(400).json({ error: err.message })
+    }
     res.status(500).json({ error: err.message })
   }
 })

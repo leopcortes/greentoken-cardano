@@ -28,8 +28,13 @@ export interface Bottle {
   id: string;
   user_id: string;
   container_id: string | null;
+  container_name: string | null;
+  route_id: string | null;
+  station_id: string | null;
+  station_name: string | null;
   bottle_id_text: string;
   bottle_id_hex: string;
+  volume_ml: number;
   current_stage: string;
   utxo_hash: string | null;
   utxo_index: number | null;
@@ -74,11 +79,21 @@ export interface Truck {
 export interface Route {
   id: string;
   truck_id: string;
+  station_id: string | null;
   status: string;
   created_at: string;
   completed_at: string | null;
   truck_license_plate: string;
   stop_count: number;
+}
+
+export interface Station {
+  id: string;
+  name: string;
+  location_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
 }
 
 export interface RouteStop {
@@ -100,7 +115,7 @@ export const getUser = (id: string) =>
   request<User>(`/users/${id}`);
 
 export const createUser = (data: {
-  role: string; name: string; email: string; wallet_address: string; pubkey_hash: string;
+  role: string; name: string; email: string; wallet_address: string;
 }) =>
   request<User>('/users', { method: 'POST', body: JSON.stringify(data) });
 
@@ -109,11 +124,15 @@ export const getUserRewards = (id: string) =>
 
 // --- Bottles ---
 
-export const getBottles = (params?: { user_id?: string; stage?: string; container_id?: string }) => {
+export const getBottles = (params?: { user_id?: string; stage?: string; container_id?: string; container_name?: string; route_id?: string; station_id?: string; station_name?: string; }) => {
   const query = new URLSearchParams();
   if (params?.user_id) query.set('user_id', params.user_id);
   if (params?.stage) query.set('stage', params.stage);
   if (params?.container_id) query.set('container_id', params.container_id);
+  if (params?.container_name) query.set('container_name', params.container_name);
+  if (params?.route_id) query.set('route_id', params.route_id);
+  if (params?.station_id) query.set('station_id', params.station_id);
+  if (params?.station_name) query.set('station_name', params.station_name);
   const qs = query.toString();
   return request<Bottle[]>(`/bottles${qs ? `?${qs}` : ''}`);
 };
@@ -121,15 +140,15 @@ export const getBottles = (params?: { user_id?: string; stage?: string; containe
 export const getBottle = (id: string) =>
   request<Bottle>(`/bottles/${id}`);
 
-export const createBottle = (data: { bottle_id: string; user_id: string; container_id?: string }) =>
+export const createBottle = (data: { user_id: string; container_id: string; volume_ml: number }) =>
   request<{ bottle: Bottle; tx_hash: string; message: string }>(
     '/bottles', { method: 'POST', body: JSON.stringify(data) }
   );
 
-export const advanceBottle = (id: string, stage: string) =>
-  request<{ bottle_id: string; tx_hash: string; new_stage: string; message: string }>(
-    `/bottles/${id}/advance`, { method: 'POST', body: JSON.stringify({ stage }) }
-  );
+export const getNextBottleNumber = () =>
+  request<{ next_number: number; next_name: string }>('/bottles/next-number');
+
+// --- Container actions ---
 
 // --- Containers ---
 
@@ -147,6 +166,11 @@ export const createContainer = (data: {
 }) =>
   request<Container>('/containers', { method: 'POST', body: JSON.stringify(data) });
 
+export const compactContainer = (id: string) =>
+  request<{ message: string; containerId: string; compacted: number }>(
+    `/containers/${id}/compact`, { method: 'POST' }
+  );
+
 // --- Trucks ---
 
 export const getTrucks = () =>
@@ -163,8 +187,34 @@ export const getRoutes = () =>
 export const getRoute = (id: string) =>
   request<Route & { stops: RouteStop[] }>(`/routes/${id}`);
 
-export const createRoute = (data: { truck_id: string; container_ids: string[] }) =>
+export const createRoute = (data: { truck_id: string; station_id?: string; container_ids: string[] }) =>
   request<Route>('/routes', { method: 'POST', body: JSON.stringify(data) });
 
 export const collectStop = (stopId: string) =>
-  request<{ message: string }>(`/routes/stops/${stopId}/collect`, { method: 'POST' });
+  request<{ message: string; collected: number }>(`/routes/stops/${stopId}/collect`, { method: 'POST' });
+
+export const deliverRoute = (routeId: string, stationId: string) =>
+  request<{ message: string; delivered: number }>(
+    `/routes/${routeId}/deliver`, { method: 'POST', body: JSON.stringify({ station_id: stationId }) }
+  );
+
+// --- Stations ---
+
+export const getStations = () =>
+  request<Station[]>('/stations');
+
+export const getStation = (id: string) =>
+  request<Station>(`/stations/${id}`);
+
+export const createStation = (data: {
+  name: string; location_name?: string; latitude?: number; longitude?: number;
+}) =>
+  request<Station>('/stations', { method: 'POST', body: JSON.stringify(data) });
+
+export const getStationBottles = (stationId: string) =>
+  request<Bottle[]>(`/stations/${stationId}/bottles`);
+
+export const shredBottle = (bottleId: string) =>
+  request<{ message: string; bottle_id: string; tx_hash: string | null }>(
+    `/stations/bottles/${bottleId}/shred`, { method: 'POST' }
+  );

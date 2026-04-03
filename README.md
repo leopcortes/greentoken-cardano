@@ -235,7 +235,22 @@ O Vite faz proxy de `/api/*` para `http://localhost:3000` (backend). O backend p
 
 - [x] Frontend web para recicladores e owners
 - [x] Implementar lógica de rotas de caminhão (CRUD de caminhões, criação de rotas, coleta de paradas)
-- [ ] Adicionar autenticação na API (JWT ou API keys)
+- [ ] Adicionar autenticação na API (verificar se é necessário)
 - [ ] Testes automatizados para o backend
 - [ ] Migrar de `child_process` para `cardano-serialization-lib`
 - [ ] Deploy em produção (mainnet)
+
+Fluxo deve ser
+1. É criada (inserida) uma garrafa associada a um container e usuário (garraga inserted)
+2. Após n garrafas serem adicionadas a um container ele vai enchendo, ao ter 90% da capacidade ocupada ele pode ser coletado por um caminhão em uma rota (garrafa inserted -> colected)
+3. Após a coleta as garrafas param de ser associadas ao container e ficam associadas ao caminhão (o container fica com ocupação vazia) (garrafa colected)
+4. Após o caminhão terminar as coletas de sua rota ele leva as garrafas a uma estação de tratamento (ponto final da rota). Ao chegar na estação de tratamento as garrafas param de ser associadas ao caminhão e passam a ser associadas a estação de tratamento (garrafa colected -> atstation)
+5. Na estação de tratamento existem n garrafas que podem ser trituradas (atstation -> shreded)
+
+Obs:
+- [ ] Garrafas que estiverem em um container não devem ter as ações de passar de estágio manualmente
+- [ ] Ação no container para quando estiver pelo menos 90% cheio ele compactar
+- [ ] Após todas as garrafas do container estarem compactadas, ao coletar um container, todas as garrafas dele devem passar para coletadas e o volume do container deve resetar
+- [ ] após finalizar as coletas de uma rota, opção para "entregar" as garrafas do container em uma estação (isso avança as garrafas para o estágio atstation)
+- [ ] Nova aba de estações de tratamento para ter opção de "triturar" as garrfas e passar para o próximo estágio
+- [ ] Nova tabela de estações de tratamento no banco de dados

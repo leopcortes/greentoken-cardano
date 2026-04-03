@@ -3,6 +3,7 @@ import { pool } from '../pool'
 export interface Route {
   id: string
   truck_id: string
+  station_id: string | null
   status: string
   created_at: Date
   completed_at: Date | null
@@ -51,6 +52,7 @@ export async function findStops(routeId: string): Promise<(RouteStop & { contain
 
 export async function create(data: {
   truck_id: string
+  station_id?: string
   container_ids: string[]
 }): Promise<Route> {
   const client = await pool.connect()
@@ -58,8 +60,8 @@ export async function create(data: {
     await client.query('BEGIN')
 
     const { rows: [route] } = await client.query(
-      `INSERT INTO routes (truck_id) VALUES ($1) RETURNING *`,
-      [data.truck_id],
+      `INSERT INTO routes (truck_id, station_id) VALUES ($1, $2) RETURNING *`,
+      [data.truck_id, data.station_id ?? null],
     )
 
     for (let i = 0; i < data.container_ids.length; i++) {
@@ -94,7 +96,8 @@ export async function create(data: {
   }
 }
 
-export async function completeStop(stopId: string): Promise<void> {
+// Marca uma parada como coletada (apenas banco - garrafas sao movidas pelo service)
+export async function completeStop(stopId: string): Promise<{ routeId: string; containerId: string }> {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -105,14 +108,9 @@ export async function completeStop(stopId: string): Promise<void> {
       [stopId],
     )
 
-    // Reset container
-    await client.query(
-      `UPDATE containers SET status = 'active', current_volume_liters = 0, last_updated = NOW()
-       WHERE id = $1`,
-      [stop.container_id],
-    )
+    if (!stop) throw new Error('Parada nao encontrada')
 
-    // Check if all stops are collected
+    // Check if all stops are collected -> complete route and free truck
     const { rows: [{ pending }] } = await client.query(
       `SELECT COUNT(*) AS pending FROM route_stops
        WHERE route_id = $1 AND status = 'pending'`,
@@ -124,7 +122,6 @@ export async function completeStop(stopId: string): Promise<void> {
         `UPDATE routes SET status = 'completed', completed_at = NOW() WHERE id = $1`,
         [stop.route_id],
       )
-      // Get truck_id and free it
       const { rows: [route] } = await client.query(
         `SELECT truck_id FROM routes WHERE id = $1`, [stop.route_id],
       )
@@ -135,10 +132,18 @@ export async function completeStop(stopId: string): Promise<void> {
     }
 
     await client.query('COMMIT')
+    return { routeId: stop.route_id, containerId: stop.container_id }
   } catch (err) {
     await client.query('ROLLBACK')
     throw err
   } finally {
     client.release()
   }
+}
+
+export async function updateStationId(routeId: string, stationId: string): Promise<void> {
+  await pool.query(
+    'UPDATE routes SET station_id = $2 WHERE id = $1',
+    [routeId, stationId],
+  )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { CopyButton } from '@/components/ui/copy-button';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSortable } from '@/hooks/useSortable';
 import {
   getRoutes, createRoute, getRoute, collectStop,
@@ -17,6 +19,7 @@ import {
   getContainers,
   type Route, type RouteStop, type Truck, type Container,
 } from '@/services/api';
+import { ROUTE_STATUS_LABELS, TRUCK_STATUS_LABELS, STOP_STATUS_LABELS, t } from '@/lib/labels';
 
 const ROUTE_STATUS_COLORS: Record<string, string> = {
   planned: 'bg-blue-100 text-blue-800',
@@ -45,6 +48,7 @@ export function RoutesPage() {
 
   const [truckDialogOpen, setTruckDialogOpen] = useState(false);
   const [formPlate, setFormPlate] = useState('');
+  const [plateError, setPlateError] = useState('');
 
   const [detailRoute, setDetailRoute] = useState<(Route & { stops: RouteStop[] }) | null>(null);
 
@@ -95,29 +99,40 @@ export function RoutesPage() {
     setSubmitting(true);
     try {
       await createRoute({ truck_id: selectedTruck, container_ids: selectedContainers });
+      toast.success('Rota de coleta criada com sucesso.');
       setRouteDialogOpen(false);
       fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar rota');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar rota');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCreateTruck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await createTruck({ license_plate: formPlate });
-      setTruckDialogOpen(false);
-      setFormPlate('');
-      fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar caminhão');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  e.preventDefault();
+
+  if (!formPlate.trim()) {
+    setPlateError('A placa é obrigatória.');
+    return;
+  }
+
+  setPlateError('');
+  setSubmitting(true);
+
+  try {
+    await createTruck({ license_plate: formPlate });
+    toast.success(`Caminhão "${formPlate}" cadastrado com sucesso.`);
+    setTruckDialogOpen(false);
+    setFormPlate('');
+    setPlateError('');
+    fetchData();
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Erro ao criar caminhão');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleViewRoute = async (routeId: string) => {
     try {
@@ -131,13 +146,14 @@ export function RoutesPage() {
   const handleCollectStop = async (stopId: string) => {
     try {
       await collectStop(stopId);
+      toast.success('Parada coletada com sucesso.');
       if (detailRoute) {
         const updated = await getRoute(detailRoute.id);
         setDetailRoute(updated);
       }
       fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao coletar parada');
+      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada');
     }
   };
 
@@ -167,9 +183,25 @@ export function RoutesPage() {
               </DialogHeader>
               <form onSubmit={handleCreateTruck} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="truck-plate">Placa</Label>
-                  <Input id="truck-plate" value={formPlate} onChange={e => setFormPlate(e.target.value)} required placeholder="GRN-0002" />
-                </div>
+                <Label htmlFor="truck-plate">
+                  Placa<span className="text-red-500">*</span>
+                </Label>
+
+                <Input
+                  id="truck-plate"
+                  value={formPlate}
+                  onChange={e => {
+                    setFormPlate(e.target.value);
+                    if (plateError) setPlateError('');
+                  }}
+                  placeholder="GRN-0002"
+                  className={plateError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                />
+
+                {plateError && (
+                  <p className="text-sm font-medium text-red-500">{plateError}</p>
+                )}
+              </div>
                 <Button type="submit" disabled={submitting} className="w-full">
                   {submitting ? 'Criando...' : 'Criar'}
                 </Button>
@@ -194,7 +226,7 @@ export function RoutesPage() {
                     <TableCell className="font-mono font-medium text-sm">{truck.license_plate}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={TRUCK_STATUS_COLORS[truck.status] || ''}>
-                        {truck.status}
+                        {t(TRUCK_STATUS_LABELS, truck.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -222,7 +254,7 @@ export function RoutesPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Rotas de Coleta</h2>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchData}>Atualizar</Button>
+            <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={fetchData}>Atualizar</Button>
             <Button size="sm" onClick={openCreateRoute}>+ Nova Rota</Button>
           </div>
         </div>
@@ -233,7 +265,7 @@ export function RoutesPage() {
               {loading ? 'Carregando...' : `${routes.length} rota(s) encontrada(s)`}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4 pt-0">
+          <CardContent className="px-4 pb-2 pt-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -250,22 +282,22 @@ export function RoutesPage() {
                   <TableRow key={route.id}>
                     <TableCell>
                       <div className="flex items-center gap-0.5">
-                        <span className="font-mono text-xs">{route.id}...</span>
+                        <span className="font-mono text-xs">{route.id}</span>
                         <CopyButton className='ml-1' value={route.id} />
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">{route.truck_license_plate}</TableCell>
-                    <TableCell className="text-sm">{route.stop_count} parada(s)</TableCell>
+                    <TableCell className="text-sm">{route.stop_count == 1 ? `${route.stop_count} parada` : `${route.stop_count} paradas`}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={ROUTE_STATUS_COLORS[route.status] || ''}>
-                        {route.status}
+                        {t(ROUTE_STATUS_LABELS, route.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(route.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => handleViewRoute(route.id)}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs px-2 bg-gray-100" onClick={() => handleViewRoute(route.id)}>
                         Detalhes
                       </Button>
                     </TableCell>
@@ -292,25 +324,30 @@ export function RoutesPage() {
           </DialogHeader>
           <form onSubmit={handleCreateRoute} className="space-y-4">
             <div className="space-y-2">
-              <Label>Caminhão</Label>
+              <Label>
+                Caminhão<span className="text-red-500">*</span>
+              </Label>
               {availableTrucks.length > 0 ? (
-                <select
-                  value={selectedTruck}
-                  onChange={e => setSelectedTruck(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="">Selecione um caminhão...</option>
-                  {availableTrucks.map(t => (
-                    <option key={t.id} value={t.id}>{t.license_plate}</option>
-                  ))}
-                </select>
+                <Select value={selectedTruck} onValueChange={setSelectedTruck}>
+                  <SelectTrigger id="route-truck" className="w-full">
+                    <SelectValue placeholder="Selecione um caminhão..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {availableTrucks.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.license_plate}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhum caminhão disponível</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label>Containers cheios ({selectedContainers.length} selecionado(s))</Label>
+              <Label>Containers cheios<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
               {fullContainers.length > 0 ? (
                 <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2">
                   {fullContainers.map(c => (
@@ -345,16 +382,16 @@ export function RoutesPage() {
 
       {/* Route Detail Dialog */}
       <Dialog open={!!detailRoute} onOpenChange={() => setDetailRoute(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Rota - {detailRoute?.id}...</DialogTitle>
+            <DialogTitle>Rota - {detailRoute?.id}</DialogTitle>
           </DialogHeader>
           {detailRoute && (
             <div className="space-y-3">
               <div className="flex gap-4 text-sm items-center">
                 <span>Caminhão: <strong>{detailRoute.truck_license_plate}</strong></span>
                 <Badge variant="secondary" className={ROUTE_STATUS_COLORS[detailRoute.status] || ''}>
-                  {detailRoute.status}
+                  {t(ROUTE_STATUS_LABELS, detailRoute.status)}
                 </Badge>
               </div>
               <Table>
@@ -375,12 +412,12 @@ export function RoutesPage() {
                         <Badge variant="secondary" className={
                           stop.status === 'collected' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                         }>
-                          {stop.status}
+                          {t(STOP_STATUS_LABELS, stop.status)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {stop.status === 'pending' ? (
-                          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => handleCollectStop(stop.id)}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs px-2 bg-gray-100" onClick={() => handleCollectStop(stop.id)}>
                             Coletar
                           </Button>
                         ) : (

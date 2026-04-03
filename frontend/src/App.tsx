@@ -1,9 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Toaster } from 'sonner';
 import { BottlesPage } from '@/pages/BottlesPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { ContainersPage } from '@/pages/ContainersPage';
 import { RoutesPage } from '@/pages/RoutesPage';
+import { StationsPage } from '@/pages/StationsPage';
 
 function App() {
   return (
@@ -23,13 +25,14 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto 2xl:max-w-[75%] lg:max-w-[90%] max-w-[95%] p-6">
+      <main className="mx-auto 2xl:max-w-[75%] lg:max-w-[95%] p-6">
         <Tabs defaultValue="bottles">
-          <TabsList>
+          <TabsList className='bg-gray-100 text-gray-800'>
             <TabsTrigger value="bottles">Garrafas</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="containers">Containers</TabsTrigger>
             <TabsTrigger value="routes">Rotas</TabsTrigger>
+            <TabsTrigger value="stations">Estações</TabsTrigger>
           </TabsList>
 
           <TabsContent value="bottles" className="mt-4">
@@ -44,8 +47,12 @@ function App() {
           <TabsContent value="routes" className="mt-4">
             <RoutesPage />
           </TabsContent>
+          <TabsContent value="stations" className="mt-4">
+            <StationsPage />
+          </TabsContent>
         </Tabs>
       </main>
+      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }
