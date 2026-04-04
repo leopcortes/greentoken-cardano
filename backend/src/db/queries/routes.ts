@@ -21,21 +21,39 @@ export interface RouteStop {
 export interface RouteWithDetails extends Route {
   truck_license_plate: string
   stop_count: number
+  station_name: string | null
+  container_names: string | null
 }
 
 export async function list(): Promise<RouteWithDetails[]> {
   const { rows } = await pool.query(`
     SELECT r.*, t.license_plate AS truck_license_plate,
-           (SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id)::int AS stop_count
+           (SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id)::int AS stop_count,
+           st.name AS station_name,
+           (SELECT string_agg(c.name, ', ' ORDER BY rs2.stop_order)
+            FROM route_stops rs2 JOIN containers c ON c.id = rs2.container_id
+            WHERE rs2.route_id = r.id) AS container_names
     FROM routes r
     JOIN trucks t ON t.id = r.truck_id
+    LEFT JOIN stations st ON st.id = r.station_id
     ORDER BY r.created_at DESC
   `)
   return rows
 }
 
-export async function findById(id: string): Promise<Route | null> {
-  const { rows } = await pool.query('SELECT * FROM routes WHERE id = $1', [id])
+export async function findById(id: string): Promise<RouteWithDetails | null> {
+  const { rows } = await pool.query(`
+    SELECT r.*, t.license_plate AS truck_license_plate,
+           (SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id)::int AS stop_count,
+           st.name AS station_name,
+           (SELECT string_agg(c.name, ', ' ORDER BY rs2.stop_order)
+            FROM route_stops rs2 JOIN containers c ON c.id = rs2.container_id
+            WHERE rs2.route_id = r.id) AS container_names
+    FROM routes r
+    JOIN trucks t ON t.id = r.truck_id
+    LEFT JOIN stations st ON st.id = r.station_id
+    WHERE r.id = $1
+  `, [id])
   return rows[0] ?? null
 }
 
@@ -110,7 +128,7 @@ export async function completeStop(stopId: string): Promise<{ routeId: string; c
 
     if (!stop) throw new Error('Parada nao encontrada')
 
-    // Check if all stops are collected -> complete route and free truck
+    // Check how many stops are still pending
     const { rows: [{ pending }] } = await client.query(
       `SELECT COUNT(*) AS pending FROM route_stops
        WHERE route_id = $1 AND status = 'pending'`,
@@ -118,21 +136,47 @@ export async function completeStop(stopId: string): Promise<{ routeId: string; c
     )
 
     if (parseInt(pending) === 0) {
+      // All stops collected -> awaiting delivery to station (truck stays on_route)
       await client.query(
-        `UPDATE routes SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+        `UPDATE routes SET status = 'awaiting_delivery' WHERE id = $1`,
         [stop.route_id],
       )
-      const { rows: [route] } = await client.query(
-        `SELECT truck_id FROM routes WHERE id = $1`, [stop.route_id],
-      )
+    } else {
+      // Still has pending stops -> mark as in_progress (only if still planned)
       await client.query(
-        `UPDATE trucks SET status = 'available', last_updated = NOW() WHERE id = $1`,
-        [route.truck_id],
+        `UPDATE routes SET status = 'in_progress' WHERE id = $1 AND status = 'planned'`,
+        [stop.route_id],
       )
     }
 
     await client.query('COMMIT')
     return { routeId: stop.route_id, containerId: stop.container_id }
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+export async function completeRoute(routeId: string): Promise<void> {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(
+      `UPDATE routes SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+      [routeId],
+    )
+    const { rows: [route] } = await client.query(
+      `SELECT truck_id FROM routes WHERE id = $1`, [routeId],
+    )
+    if (route) {
+      await client.query(
+        `UPDATE trucks SET status = 'available', last_updated = NOW() WHERE id = $1`,
+        [route.truck_id],
+      )
+    }
+    await client.query('COMMIT')
   } catch (err) {
     await client.query('ROLLBACK')
     throw err

@@ -54,7 +54,7 @@ CREATE TABLE routes (
   truck_id     UUID        NOT NULL REFERENCES trucks(id) ON DELETE RESTRICT,
   station_id   UUID        REFERENCES stations(id) ON DELETE RESTRICT,
   status       VARCHAR(20) NOT NULL DEFAULT 'planned'
-                 CHECK (status IN ('planned', 'in_progress', 'completed')),
+                 CHECK (status IN ('planned', 'in_progress', 'awaiting_delivery', 'completed')),
   created_at   TIMESTAMP   NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMP
 );

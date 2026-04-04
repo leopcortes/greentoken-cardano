@@ -100,11 +100,11 @@ export async function isUtxoOnChain(txHash: string, txIndex: number): Promise<bo
   return `${txHash}#${txIndex}` in utxos
 }
 
-async function findOperatorUtxo(minLovelace: number): Promise<{ txIn: string; lovelace: number }> {
+export async function findOperatorUtxos(minLovelace: number): Promise<{ txIn: string; lovelace: number }[]> {
   const operatorAddr = await readAddr(paths.operatorAddr)
   const utxos = await queryUtxosJson(operatorAddr)
 
-  let best: { txIn: string; lovelace: number } | null = null
+  const results: { txIn: string; lovelace: number }[] = []
 
   for (const [txIn, entry] of Object.entries(utxos)) {
     const keys = Object.keys(entry.value)
@@ -113,15 +113,20 @@ async function findOperatorUtxo(minLovelace: number): Promise<{ txIn: string; lo
 
     const lovelace = entry.value.lovelace
     if (lovelace < minLovelace) continue
-    if (!best || lovelace > best.lovelace) {
-      best = { txIn, lovelace }
-    }
+    results.push({ txIn, lovelace })
   }
 
-  if (!best) {
+  // Sort descending by lovelace so the largest is first
+  results.sort((a, b) => b.lovelace - a.lovelace)
+  return results
+}
+
+async function findOperatorUtxo(minLovelace: number): Promise<{ txIn: string; lovelace: number }> {
+  const utxos = await findOperatorUtxos(minLovelace)
+  if (utxos.length === 0) {
     throw new Error(`Nenhum UTxO ADA-only >= ${minLovelace} lovelace encontrado no operador`)
   }
-  return best
+  return utxos[0]
 }
 
 // -------------------------------------------------------------------
@@ -237,6 +242,7 @@ export async function advanceStage(params: {
   userAddr: string
   utxoHash: string
   utxoIndex: number
+  operatorTxIn?: string
 }): Promise<string> {
   const { bottleId, targetStage, userAddr, utxoHash, utxoIndex } = params
 
@@ -258,8 +264,8 @@ export async function advanceStage(params: {
   await fs.access(datumOut)
   await fs.access(redeemerFile)
 
-  // Busca UTxO para colateral (min 4 ADA)
-  const { txIn: collateralTxIn } = await findOperatorUtxo(4_000_000)
+  // Usa UTxO do operador fornecido ou busca um (min 4 ADA)
+  const collateralTxIn = params.operatorTxIn ?? (await findOperatorUtxo(4_000_000)).txIn
   const bottleTxIn = `${utxoHash}#${utxoIndex}`
 
   await fs.mkdir(paths.txDir, { recursive: true })

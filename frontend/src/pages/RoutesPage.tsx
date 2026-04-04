@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CopyButton } from '@/components/ui/copy-button';
+
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -16,7 +16,7 @@ import { useSortable } from '@/hooks/useSortable';
 import {
   getRoutes, createRoute, getRoute, collectStop, deliverRoute,
   getTrucks, createTruck,
-  getContainers, getBottles,
+  getContainers,
   getStations,
   type Route, type RouteStop, type Truck, type Container, type Station,
 } from '@/services/api';
@@ -25,6 +25,7 @@ import { ROUTE_STATUS_LABELS, TRUCK_STATUS_LABELS, STOP_STATUS_LABELS, t } from 
 const ROUTE_STATUS_COLORS: Record<string, string> = {
   planned: 'bg-blue-100 text-blue-800',
   in_progress: 'bg-yellow-100 text-yellow-800',
+  awaiting_delivery: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
 };
 
@@ -55,7 +56,6 @@ export function RoutesPage() {
   const [plateError, setPlateError] = useState('');
 
   const [detailRoute, setDetailRoute] = useState<(Route & { stops: RouteStop[] }) | null>(null);
-  const [routeHasCollected, setRouteHasCollected] = useState(false);
 
   const truckSort = useSortable<Truck>(trucks);
   const routeSort = useSortable<Route>(routes);
@@ -148,12 +148,8 @@ export function RoutesPage() {
 
   const handleViewRoute = async (routeId: string) => {
     try {
-      const [data, bottles] = await Promise.all([
-        getRoute(routeId),
-        getBottles({ route_id: routeId }),
-      ]);
+      const data = await getRoute(routeId);
       setDetailRoute(data);
-      setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar rota');
     }
@@ -165,12 +161,8 @@ export function RoutesPage() {
       const result = await collectStop(stopId);
       toast.success(result.message, { id: toastId });
       if (detailRoute) {
-        const [updated, bottles] = await Promise.all([
-          getRoute(detailRoute.id),
-          getBottles({ route_id: detailRoute.id }),
-        ]);
+        const updated = await getRoute(detailRoute.id);
         setDetailRoute(updated);
-        setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
       }
       fetchData();
     } catch (err) {
@@ -193,12 +185,8 @@ export function RoutesPage() {
     try {
       const result = await deliverRoute(detailRoute.id, stationId);
       toast.success(result.message, { id: toastId });
-      const [updated, bottles] = await Promise.all([
-        getRoute(detailRoute.id),
-        getBottles({ route_id: detailRoute.id }),
-      ]);
+      const updated = await getRoute(detailRoute.id);
       setDetailRoute(updated);
-      setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
       fetchData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao entregar garrafas', { id: toastId });
@@ -239,11 +227,10 @@ export function RoutesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>{RSH('Caminhão', 'truck_license_plate')}</TableHead>
                   <TableHead>{RSH('Paradas', 'stop_count')}</TableHead>
                   <TableHead>{RSH('Status', 'status')}</TableHead>
-                  <TableHead>{RSH('Criada em', 'created_at')}</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -251,10 +238,13 @@ export function RoutesPage() {
                 {routeSort.sorted.map(route => (
                   <TableRow key={route.id}>
                     <TableCell>
-                      <div className="flex items-center gap-0.5">
-                        <span className="font-mono text-xs">{route.id}</span>
-                        <CopyButton className='ml-1' value={route.id} />
+                      <div className="text-sm">
+                        <span className="font-medium">{route.container_names || 'Sem containers'}</span>
+                        {route.station_name && (
+                          <span className="font-medium">{' → '}{route.station_name}</span>
+                        )}
                       </div>
+                      <span className="text-xs text-muted-foreground">{new Date(route.created_at).toLocaleDateString('pt-BR')}</span>
                     </TableCell>
                     <TableCell className="font-mono text-sm">{route.truck_license_plate}</TableCell>
                     <TableCell className="text-sm">{route.stop_count == 1 ? `${route.stop_count} parada` : `${route.stop_count} paradas`}</TableCell>
@@ -262,9 +252,6 @@ export function RoutesPage() {
                       <Badge variant="secondary" className={ROUTE_STATUS_COLORS[route.status] || ''}>
                         {t(ROUTE_STATUS_LABELS, route.status)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(route.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" className="h-7 text-xs px-2 bg-gray-100" onClick={() => handleViewRoute(route.id)}>
@@ -275,7 +262,7 @@ export function RoutesPage() {
                 ))}
                 {!loading && routes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       Nenhuma rota encontrada
                     </TableCell>
                   </TableRow>
@@ -375,7 +362,7 @@ export function RoutesPage() {
       <Dialog open={!!detailRoute} onOpenChange={() => setDetailRoute(null)}>
         <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Rota - {detailRoute?.id}</DialogTitle>
+            <DialogTitle>Rota - {detailRoute?.container_names || detailRoute?.id}{detailRoute?.station_name ? ` → ${detailRoute.station_name}` : ''}</DialogTitle>
           </DialogHeader>
           {detailRoute && (
             <div className="space-y-3">
@@ -422,12 +409,9 @@ export function RoutesPage() {
                 </TableBody>
               </Table>
 
-              {/* Botão de entregar na estação: aparece quando TODAS as paradas foram coletadas e estação definida */}
+              {/* Botão de entregar na estação */}
               {(() => {
-                const allStopsCollected = detailRoute.stops?.length > 0 && detailRoute.stops.every(s => s.status === 'collected');
-                const hasAnyPending = detailRoute.stops?.some(s => s.status === 'pending');
-
-                if (allStopsCollected && routeHasCollected && detailRoute.station_id) {
+                if (detailRoute.status === 'awaiting_delivery' && detailRoute.station_id) {
                   return (
                     <div className="pt-3 border-t">
                       <Button
@@ -435,13 +419,13 @@ export function RoutesPage() {
                         disabled={delivering}
                         onClick={handleDeliver}
                       >
-                        {delivering ? 'Entregando...' : 'Entregar Garrafas na Estação'}
+                        {delivering ? 'Entregando...' : `Entregar Garrafas na ${detailRoute.station_name || 'Estação'}`}
                       </Button>
                     </div>
                   );
                 }
 
-                if (routeHasCollected && hasAnyPending && detailRoute.station_id) {
+                if (detailRoute.status === 'in_progress' && detailRoute.station_id) {
                   return (
                     <p className="text-sm text-amber-600 pt-3 border-t text-center">
                       Todas as paradas devem ser coletadas antes de entregar na estação.
@@ -449,18 +433,10 @@ export function RoutesPage() {
                   );
                 }
 
-                if (detailRoute.status === 'completed' && !routeHasCollected && detailRoute.station_id) {
+                if (detailRoute.status === 'completed') {
                   return (
                     <p className="text-sm text-muted-foreground pt-3 border-t text-center">
-                      Garrafas já entregues na estação.
-                    </p>
-                  );
-                }
-
-                if (detailRoute.status === 'completed' && !detailRoute.station_id) {
-                  return (
-                    <p className="text-sm text-muted-foreground pt-3 border-t">
-                      Rota concluída, mas sem estação de destino definida.
+                      Garrafas já entregues na estação. Rota concluída.
                     </p>
                   );
                 }

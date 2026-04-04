@@ -17,6 +17,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export const ROUTE_STATUS_LABELS: Record<string, string> = {
   planned: 'Planejada',
   in_progress: 'Em andamento',
+  awaiting_delivery: 'Entrega pendente',
   completed: 'Concluída',
 };
 

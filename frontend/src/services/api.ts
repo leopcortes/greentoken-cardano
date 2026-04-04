@@ -87,6 +87,8 @@ export interface Route {
   completed_at: string | null;
   truck_license_plate: string;
   stop_count: number;
+  station_name: string | null;
+  container_names: string | null;
 }
 
 export interface Station {

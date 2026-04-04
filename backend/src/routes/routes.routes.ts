@@ -74,8 +74,11 @@ router.post('/:id/deliver', async (req: Request, res: Response) => {
 
     const result = await bottleService.deliverToStation(req.params.id as string, station_id)
 
+    // Mark route as completed and free truck
+    await routesDb.completeRoute(req.params.id as string)
+
     res.json({
-      message: `${result.delivered} garrafa(s) entregue(s) na estacao.`,
+      message: `${result.delivered} garrafa(s) entregue(s) na estacao. Rota concluida.`,
       ...result,
     })
   } catch (err: any) {
