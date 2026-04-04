@@ -291,7 +291,7 @@ export function UsersPage() {
       </Card>
 
       <Dialog open={!!rewardsUser} onOpenChange={() => setRewardsUser(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Recompensas - {rewardsUser?.name}</DialogTitle>
           </DialogHeader>
@@ -312,9 +312,10 @@ export function UsersPage() {
                 <TableBody>
                   {rewards.map(r => (
                     <TableRow key={r.id}>
-                      <TableCell>
+                      <TableCell className='flex gap-2'>
+                        <div className="text-sm font-medium leading-tight">{r.bottle_name}</div>
                         <div className="flex items-center gap-0.5">
-                          <span className="font-mono text-xs">{r.bottle_id}</span>
+                          <span className="font-mono text-xs">{truncateMiddle(r.bottle_id, 10, 4)}</span>
                           <CopyButton className='ml-1' value={r.bottle_id} />
                         </div>
                       </TableCell>

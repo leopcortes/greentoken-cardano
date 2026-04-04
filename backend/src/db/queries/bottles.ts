@@ -8,6 +8,7 @@ export interface Bottle {
   route_id: string | null
   station_id: string | null
   station_name: string | null
+  truck_license_plate: string | null
   bottle_id_text: string
   bottle_id_hex: string
   volume_ml: number
@@ -25,10 +26,13 @@ const BASE_SELECT = `
   SELECT
     b.*,
     c.name AS container_name,
-    s.name AS station_name
+    s.name AS station_name,
+    t.license_plate AS truck_license_plate
   FROM bottles b
   LEFT JOIN containers c ON c.id = b.container_id
   LEFT JOIN stations s ON s.id = b.station_id
+  LEFT JOIN routes r ON r.id = b.route_id
+  LEFT JOIN trucks t ON t.id = r.truck_id
 `
 
 // node-pg retorna NUMERIC como string; converte para number
@@ -38,6 +42,7 @@ function parseRow(row: any): Bottle {
     volume_ml: parseFloat(row.volume_ml) || 0,
     container_name: row.container_name ?? null,
     station_name: row.station_name ?? null,
+    truck_license_plate: row.truck_license_plate ?? null,
   }
 }
 
@@ -134,36 +139,39 @@ export async function findByContainerIdAndStage(containerId: string, stage: stri
   return rows.map(parseRow)
 }
 
-// Batch: compacta todas as garrafas inserted de um container
-export async function compactByContainer(containerId: string): Promise<number> {
+// Batch: compacta garrafas inserted por IDs (apenas as que tiveram tx submetida)
+export async function compactByIds(bottleIds: string[]): Promise<number> {
+  if (bottleIds.length === 0) return 0
   const { rowCount } = await pool.query(
     `UPDATE bottles SET current_stage = 'compacted', compacted_at = NOW()
-     WHERE container_id = $1 AND current_stage = 'inserted'`,
-    [containerId],
+     WHERE id = ANY($1) AND current_stage = 'inserted'`,
+    [bottleIds],
   )
   return rowCount ?? 0
 }
 
-// Batch: move garrafas compacted de um container para uma rota (collected)
-export async function collectByContainer(containerId: string, routeId: string): Promise<number> {
+// Batch: move garrafas compacted para uma rota por IDs (collected)
+export async function collectByIds(bottleIds: string[], routeId: string): Promise<number> {
+  if (bottleIds.length === 0) return 0
   const { rowCount } = await pool.query(
     `UPDATE bottles
      SET current_stage = 'collected', collected_at = NOW(),
          container_id = NULL, route_id = $2
-     WHERE container_id = $1 AND current_stage = 'compacted'`,
-    [containerId, routeId],
+     WHERE id = ANY($1) AND current_stage = 'compacted'`,
+    [bottleIds, routeId],
   )
   return rowCount ?? 0
 }
 
-// Batch: move garrafas collected de uma rota para uma estacao (atstation)
-export async function deliverByRoute(routeId: string, stationId: string): Promise<number> {
+// Batch: move garrafas collected para uma estacao por IDs (atstation)
+export async function deliverByIds(bottleIds: string[], stationId: string): Promise<number> {
+  if (bottleIds.length === 0) return 0
   const { rowCount } = await pool.query(
     `UPDATE bottles
      SET current_stage = 'atstation', atstation_at = NOW(),
          route_id = NULL, station_id = $2
-     WHERE route_id = $1 AND current_stage = 'collected'`,
-    [routeId, stationId],
+     WHERE id = ANY($1) AND current_stage = 'collected'`,
+    [bottleIds, stationId],
   )
   return rowCount ?? 0
 }
@@ -177,12 +185,13 @@ export async function shred(id: string): Promise<void> {
   )
 }
 
-// Batch: tritura todas as garrafas atstation de uma estacao
-export async function shredByStation(stationId: string): Promise<number> {
+// Batch: tritura garrafas atstation por IDs
+export async function shredByIds(bottleIds: string[]): Promise<number> {
+  if (bottleIds.length === 0) return 0
   const { rowCount } = await pool.query(
     `UPDATE bottles SET current_stage = 'shredded', shredded_at = NOW()
-     WHERE station_id = $1 AND current_stage = 'atstation'`,
-    [stationId],
+     WHERE id = ANY($1) AND current_stage = 'atstation'`,
+    [bottleIds],
   )
   return rowCount ?? 0
 }

@@ -1,6 +1,6 @@
 # Greentoken Cardano
 
-Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usando smart contracts Plutus V2. Cada garrafa passa por 5 estágios (`inserted → compacted → collected → atstation → shredded`), e o reciclador recebe **tokens Greentoken** como recompensa a cada transição.
+Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usando smart contracts Plutus V2. Cada garrafa passa por 5 estágios (`inserted -> compacted -> collected -> atstation -> shredded`), e o reciclador recebe **tokens Greentoken** como recompensa a cada transição.
 
 ---
 
@@ -13,38 +13,50 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 | **Backend** | Node.js + TypeScript + PostgreSQL | API REST que integra blockchain e banco de dados |
 | **Frontend** | React + TypeScript + Vite + TailwindCSS | Dashboard web para gerenciar o sistema |
 
-### Fluxo de integração
+### Fluxo de integração com a blockchain
 
 ```
-  Script bash OU API REST
-         │
-         ├─ Submete transação na blockchain Cardano (cardano-cli)
-         ├─ Registra garrafa + tx pendente no PostgreSQL
-         │
-         │   ~~~ confirmation worker (polling a cada 15s) ~~~
-         │
-         ├─ Detecta UTxO confirmado on-chain
-         │   ├─ Atualiza tx → confirmed
-         │   ├─ Atualiza garrafa → utxo_hash
-         │   └─ Registra recompensa Greentoken
-         │
-         └─ Dados disponíveis via API e banco de dados
+  Dashboard Frontend
+         |
+         |--- API REST (Backend Node.js)
+         |        |
+         |        |-- Submete transação na blockchain Cardano (cardano-cli)
+         |        |-- Registra garrafa + tx pendente no PostgreSQL
+         |
+         |   ~~~ confirmation worker (polling a cada 15s) ~~~
+         |
+         |        |-- Detecta UTxO confirmado on-chain
+         |        |     |-- Atualiza tx -> confirmed
+         |        |     |-- Atualiza garrafa -> utxo_hash
+         |        |     |-- Registra recompensa Greentoken
+         |
+         |--- Dados disponíveis via API e renderizados no dashboard
 ```
 
-Tanto os **scripts bash** quanto a **API REST** gravam no banco de dados e submetem transações na blockchain. O **confirmation worker** do backend confirma as transações e credita as recompensas automaticamente.
+### Como cada operação usa a blockchain Cardano
+
+| Operação | Transação on-chain | Detalhes |
+|----------|-------------------|----------|
+| **Criar garrafa** | Mint de NFT + 10 Greentoken | Cria um UTxO no endereço do script Plutus com datum `{user, bottleId, stage=inserted}`. Minta 10 Greentoken e envia à carteira do reciclador. |
+| **Compactar** | Advance stage (por garrafa) | Consome o UTxO `inserted` do script, cria novo UTxO com datum `stage=compacted`. Minta 5 Greentoken para o reciclador. Requer redeemer de transição. |
+| **Coletar** | Advance stage (por garrafa) | Consome UTxO `compacted`, cria UTxO `collected`. Minta 5 Greentoken. |
+| **Entregar na estação** | Advance stage (por garrafa) | Consome UTxO `collected`, cria UTxO `atstation`. Minta 10 Greentoken. |
+| **Triturar** | Advance stage (por garrafa) | Consome UTxO `atstation`, cria UTxO `shredded`. Minta 20 Greentoken. |
+
+Cada transação é submetida via `cardano-cli`, assinada pelo operador + policy key, e confirmada pelo **confirmation worker** que verifica a presença do UTxO no endereço do script a cada 15 segundos.
 
 ---
 
 ## Recompensas por estágio
 
-| Estágio | Greentoken |
-|---------|-----------|
-| inserted | 10 |
-| compacted | 5 |
-| collected | 5 |
-| atstation | 10 |
-| shredded | 20 |
-| **Total por garrafa** | **50** |
+| Estágio | Greentoken | Descrição |
+|---------|-----------|-----------|
+| inserted | 10 | Garrafa inserida no container |
+| compacted | 5 | Garrafas do container compactadas |
+| collected | 5 | Container coletado pelo caminhão |
+| atstation | 10 | Garrafas entregues na estação |
+| shredded | 20 | Garrafas trituradas na estação |
+| **Total** | **50** | Por garrafa, do início ao fim |
 
 ---
 
@@ -52,50 +64,50 @@ Tanto os **scripts bash** quanto a **API REST** gravam no banco de dados e subme
 
 ```
 greentoken-cardano/
-├── onchain/src/Greentoken/
-│   └── BottleValidator.hs            # Smart contract Plutus V2
-├── offchain/test/Greentoken/
-│   └── BottleValidatorSpec.hs        # Testes do validador
-├── app/
-│   ├── Main.hs                       # CLI para exportar o contrato
-│   └── WriteBottleValidator.hs       # Serialização do script
-├── assets/
-│   ├── bottle-validator.plutus       # Contrato compilado
-│   ├── policy/                       # Minting policy (policyID, script, chaves)
-│   ├── redeemers/                    # Redeemers para cada transição de estágio
-│   ├── wallet/                       # Endereço do operador e do script Plutus
-│   └── users/                        # Endereços e chaves dos usuários
-├── frontend/
-│   ├── src/
-│   │   ├── components/ui/            # Componentes shadcn (Radix + Tailwind)
-│   │   ├── hooks/                    # Custom hooks (useSortable)
-│   │   ├── lib/                      # Utilitários (truncateMiddle)
-│   │   ├── pages/                    # Páginas (Bottles, Users, Containers, Routes)
-│   │   ├── services/api.ts           # Cliente HTTP tipado para a API REST
-│   │   ├── App.tsx                   # Layout principal com abas
-│   │   └── index.css                 # Tema verde Tailwind + variáveis CSS
-│   ├── vite.config.ts                # Vite + proxy /api → backend:3000
-│   ├── tailwind.config.js            # Tailwind v3 + tokens shadcn
-│   └── package.json
-├── backend/
-│   ├── db/schema.sql                 # Schema PostgreSQL (DDL + seed)
-│   ├── src/                          # Backend Node.js/TypeScript
-│   ├── .env.example                  # Template de variáveis de ambiente
-│   ├── package.json
-│   └── tsconfig.json
-├── scripts/
-│   ├── _db-helper.sh                 # Helper: integração scripts ↔ PostgreSQL
-│   ├── setup-wallet.sh               # Setup: chaves do operador + endereço do script
-│   ├── setup-policy.sh               # Setup: minting policy + policyID
-│   ├── import-user.sh                # Importa carteira externa (ex: Lace)
-│   ├── create-user.sh                # Gera novo usuário via cardano-cli
-│   ├── create-bottle.sh              # Cria garrafa (mint + contrato + banco)
-│   ├── advance-stage.sh              # Avança estágio (transição + banco)
-│   ├── query-bottle.sh               # Consulta UTxOs no script Plutus
-│   └── query-balance.sh              # Consulta saldo de qualquer endereço
-├── SETUP-LOCAL.md                    # Guia completo de configuração local
-├── plutus-greentoken.cabal           # Configuração Haskell
-└── cabal.project                     # Dependências Haskell
+|-- onchain/src/Greentoken/
+|   |-- BottleValidator.hs            # Smart contract Plutus V2
+|-- offchain/test/Greentoken/
+|   |-- BottleValidatorSpec.hs        # Testes do validador
+|-- app/
+|   |-- Main.hs                       # CLI para exportar o contrato
+|   |-- WriteBottleValidator.hs       # Serialização do script
+|-- assets/
+|   |-- bottle-validator.plutus       # Contrato compilado
+|   |-- policy/                       # Minting policy (policyID, script, chaves)
+|   |-- redeemers/                    # Redeemers para cada transição de estágio
+|   |-- wallet/                       # Endereço do operador e do script Plutus
+|   |-- users/                        # Endereços e chaves dos usuários
+|-- frontend/
+|   |-- src/
+|   |   |-- components/ui/            # Componentes shadcn (Radix + Tailwind)
+|   |   |-- hooks/                    # Custom hooks (useSortable)
+|   |   |-- lib/                      # Utilitários (truncateMiddle, labels)
+|   |   |-- pages/                    # Páginas (Bottles, Users, Containers, Routes, Stations)
+|   |   |-- services/api.ts           # Cliente HTTP tipado para a API REST
+|   |   |-- App.tsx                   # Layout principal com abas
+|   |   |-- index.css                 # Tema verde Tailwind + variáveis CSS
+|   |-- vite.config.ts                # Vite + proxy /api -> backend:3000
+|   |-- tailwind.config.js            # Tailwind v3 + tokens shadcn
+|   |-- package.json
+|-- backend/
+|   |-- db/schema.sql                 # Schema PostgreSQL (DDL + seed)
+|   |-- src/
+|   |   |-- services/                 # Lógica de negócio (bottle, container, cardano)
+|   |   |-- routes/                   # Endpoints Express
+|   |   |-- db/queries/               # Queries PostgreSQL tipadas
+|   |   |-- workers/                  # Confirmation worker (polling blockchain)
+|   |-- .env.example                  # Template de variáveis de ambiente
+|   |-- package.json
+|   |-- tsconfig.json
+|-- scripts/
+|   |-- _db-helper.sh                 # Helper: integração scripts <-> PostgreSQL
+|   |-- setup-wallet.sh               # Setup: chaves do operador + endereço do script
+|   |-- setup-policy.sh               # Setup: minting policy + policyID
+|   |-- query-balance.sh              # Consulta saldo de qualquer endereço
+|   |-- get-pubkey-hash.sh            # Helper: gerar pubkey hash a partir do addr da wallet
+|-- SETUP-LOCAL.md                    # Guia completo de configuração local
+|-- plutus-greentoken.cabal           # Configuração Haskell
+|-- cabal.project                     # Dependências Haskell
 ```
 
 ---
@@ -109,15 +121,6 @@ greentoken-cardano/
 | `setup-wallet.sh` | Gera chaves do operador e endereço do script | `scripts/setup-wallet.sh` |
 | `setup-policy.sh` | Gera minting policy e policyID | `scripts/setup-policy.sh` |
 
-### Operação
-
-| Script | Função | Uso |
-|--------|--------|-----|
-| `import-user.sh` | Importa carteira externa (Lace, etc.) | `scripts/import-user.sh <ID> <ADDR> [NOME] [EMAIL]` |
-| `create-user.sh` | Cria usuário com chaves cardano-cli | `scripts/create-user.sh <ID> [NOME] [EMAIL]` |
-| `create-bottle.sh` | Cria garrafa no contrato + banco | `scripts/create-bottle.sh <BOTTLE_ID> <USER_ID>` |
-| `advance-stage.sh` | Avança estágio de uma garrafa | `scripts/advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
-
 ### Consulta
 
 | Script | Função | Uso |
@@ -125,7 +128,6 @@ greentoken-cardano/
 | `query-bottle.sh` | UTxOs no endereço do script | `scripts/query-bottle.sh [TX_HASH]` |
 | `query-balance.sh` | Saldo de qualquer endereço | `scripts/query-balance.sh [ADDR\|USER_ID]` |
 
-Todos os scripts de operação (`create-user`, `import-user`, `create-bottle`, `advance-stage`) gravam automaticamente no PostgreSQL quando o backend está configurado (leem `DATABASE_URL` de `backend/.env`).
 
 ---
 
@@ -136,26 +138,35 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `GET` | `/health` | Health check |
+| **Usuários** | | |
 | `GET` | `/users` | Lista usuários (`?role=recycler\|owner`) |
 | `GET` | `/users/:id` | Detalhe de um usuário |
 | `POST` | `/users` | Cria usuário |
 | `GET` | `/users/:id/rewards` | Recompensas + total Greentoken |
-| `GET` | `/bottles` | Lista garrafas (`?user_id=`, `?stage=`, `?container_id=`) |
+| **Garrafas** | | |
+| `GET` | `/bottles` | Lista garrafas (`?user_id=`, `?stage=`, `?container_id=`, `?route_id=`, `?station_id=`) |
+| `GET` | `/bottles/next-number` | Próximo número disponível para garrafa |
 | `GET` | `/bottles/:id` | Detalhe + histórico (txs + rewards) |
 | `POST` | `/bottles` | Cria garrafa (blockchain + banco) |
-| `POST` | `/bottles/:id/advance` | Avança estágio |
-| `GET` | `/containers` | Lista containers (`?status=`, `?owner_id=`) |
+| **Containers** | | |
+| `GET` | `/containers` | Lista containers (`?status=all\|active\|full\|compacted\|in_route`, `?owner_id=`) |
 | `POST` | `/containers` | Cria container |
-| `POST` | `/containers/:id/deposit` | Registra volume depositado |
-| `POST` | `/containers/:id/collected` | Marca como coletado |
-| `GET` | `/containers/status/full` | Containers cheios (prontos para rota) |
+| `POST` | `/containers/:id/compact` | Compacta garrafas inserted (>= 90% cheio) |
+| `POST` | `/containers/:id/collected` | Marca como coletado (esvaziado) |
+| **Caminhões** | | |
 | `GET` | `/trucks` | Lista caminhões |
 | `POST` | `/trucks` | Cadastra caminhão (`license_plate`) |
-| `PATCH` | `/trucks/:id/status` | Atualiza status do caminhão |
+| **Rotas** | | |
 | `GET` | `/routes` | Lista rotas de coleta |
-| `POST` | `/routes` | Cria rota (truck_id + container_ids) |
+| `POST` | `/routes` | Cria rota (`truck_id` + `container_ids` + `station_id`) |
 | `GET` | `/routes/:id` | Detalhe da rota com paradas |
-| `POST` | `/routes/stops/:stopId/collect` | Marca parada como coletada |
+| `POST` | `/routes/stops/:stopId/collect` | Coleta parada (compacted -> collected) |
+| `POST` | `/routes/:id/deliver` | Entrega garrafas na estação (collected -> atstation) |
+| **Estações** | | |
+| `GET` | `/stations` | Lista estações de tratamento |
+| `POST` | `/stations` | Cria estação |
+| `GET` | `/stations/:id/bottles` | Lista garrafas na estação |
+| `POST` | `/stations/:id/shred` | Tritura garrafas atstation (atstation -> shredded) |
 
 ---
 
@@ -164,12 +175,13 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 Schema com 8 tabelas (`backend/db/schema.sql`):
 
 - **`users`** - recicladores e donos de pontos de coleta
-- **`containers`** - pontos físicos de coleta (volume, status)
-- **`trucks`** - frota de caminhões
-- **`routes`** / **`route_stops`** - rotas de coleta
+- **`containers`** - pontos físicos de coleta (volume, status: active/full/compacted/in_route/maintenance)
+- **`trucks`** - frota de caminhões (status: available/on_route/maintenance)
+- **`routes`** / **`route_stops`** - rotas de coleta com paradas em containers
 - **`bottles`** - espelha os estágios do contrato Plutus (`utxo_hash` + `utxo_index`)
-- **`blockchain_txs`** - log de auditoria de todas as transações
-- **`rewards`** - registro de Greentoken enviados por estágio
+- **`blockchain_txs`** - log de auditoria de todas as transações submetidas
+- **`rewards`** - registro de Greentoken creditados por estágio
+- **`stations`** - estações de tratamento de resíduos
 
 ---
 
@@ -182,14 +194,15 @@ Consulte o [SETUP-LOCAL.md](SETUP-LOCAL.md) para o guia completo. Resumo rápido
 sudo -u postgres psql -c "CREATE DATABASE greentoken_db;"
 psql -U postgres -d greentoken_db -f backend/db/schema.sql
 
-# 2. Gerar chaves
+# 2. Gerar chaves do operador (wallet owner)
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
 export CARDANO_NODE_MAGIC=1
 scripts/setup-wallet.sh
 scripts/setup-policy.sh
 
-# 3. Enviar tADA ao operador (via faucet ou carteira Lace)
+# 3. Financiar wallet do operador com tADA (via faucet testnet Preprod)
 cat assets/wallet/payment.addr
+# Cole o endereço no faucet: https://docs.cardano.org/cardano-testnets/tools/faucet
 
 # 4. Iniciar nó e backend
 cardano-start
@@ -199,9 +212,12 @@ cd backend && cp .env.example .env && npm install && npm run dev
 cd frontend && npm install && npm run dev
 # Acesse http://localhost:5173
 
-# 6. Importar carteira e criar garrafa
-scripts/import-user.sh user1 addr_test1q... "Nome" "email@test.com"
-scripts/create-bottle.sh garrafa-001 user1
+# 6. Criar usuários no frontend:
+#    - Owner: usar endereço de assets/wallet/payment.addr
+#      scripts/get-pubkey-hash.sh $(cat assets/wallet/payment.addr)
+#    - Recycler: criar wallet via Lace (extensão Chrome, rede Preprod)
+#      scripts/get-pubkey-hash.sh <ENDERECO_LACE>
+#    Recyclers NÃO precisam de tADA (transações financiadas pelo owner)
 ```
 
 ---
@@ -212,12 +228,13 @@ Dashboard web construído com **React + TypeScript + Vite + TailwindCSS v3 + sha
 
 ### Funcionalidades
 
-- **4 abas**: Garrafas, Usuários, Containers, Rotas/Caminhões
+- **5 abas**: Usuários, Garrafas, Containers, Rotas/Caminhões, Estações de Tratamento
 - **CRUD completo**: criar e visualizar registros de cada entidade via interface gráfica
-- **Avanço de estágio**: botão para avançar garrafas no ciclo `inserted → shredded` (submete transação na blockchain via API)
-- **Rotas de coleta**: selecionar caminhão + containers cheios, criar rota, coletar paradas individualmente
+- **Bloqueios de fluxo**: botões desabilitados conforme regras de negócio (ex: não compactar container < 90%, não entregar na estação sem coletar todas as paradas)
+- **Cooldown de blockchain**: após criar uma garrafa, o botão fica desabilitado até a transação ser confirmada on-chain (polling automático a cada 5s)
+- **Rotas de coleta**: selecionar caminhão + containers compactados + estação de destino, coletar paradas e entregar na estação
 - **Recompensas**: dialog para visualizar recompensas Greentoken de cada usuário
-- **UX aprimorada**: botões de copiar, colunas ordenáveis, truncamento inteligente de endereços, mensagens de erro formatadas
+- **UX**: botões de copiar, colunas ordenáveis, truncamento inteligente de endereços, tooltips explicativos, mensagens de erro formatadas
 
 ### Execução
 
@@ -231,32 +248,79 @@ O Vite faz proxy de `/api/*` para `http://localhost:3000` (backend). O backend p
 
 ---
 
+## Configuração de Wallets
+
+Antes de usar o sistema, é necessário configurar as wallets Cardano para cada tipo de usuário:
+
+### Wallet do Owner (operador)
+
+A wallet do owner é criada via script e é responsável por **financiar todas as transações** on-chain (mint de NFTs, transições de estágio, recompensas). Sem ela, nenhuma operação na blockchain funciona.
+
+1. Gere a wallet com `scripts/setup-wallet.sh` (cria chaves em `assets/wallet/`)
+2. Financie a wallet com tADA via [faucet da testnet Preprod](https://docs.cardano.org/cardano-testnets/tools/faucet)
+3. Com o endereço (`payment.addr`) e o pubkey hash (`scripts/get-pubkey-hash.sh`), crie o usuário **owner** no frontend
+
+### Wallet dos Recyclers (recicladores)
+
+As wallets dos recicladores servem para **identificar o usuário** e receber recompensas Greentoken. As transações são financiadas pela wallet do owner, portanto **recicladores não precisam de tADA**.
+
+1. **Recomendado:** Crie a wallet pela extensão [Lace Wallet](https://www.lace.io/) no Chrome (rede Preprod)
+2. **Alternativa:** Crie via `cardano-cli` (ver [SETUP-LOCAL.md](SETUP-LOCAL.md#75-criar-wallets-dos-recicladores-recyclers))
+3. Com o endereço da wallet e o pubkey hash (`scripts/get-pubkey-hash.sh <ENDERECO>`), crie o usuário **recycler** no frontend
+
+> Consulte o [SETUP-LOCAL.md](SETUP-LOCAL.md#7-configurar-wallets-e-chaves) para instruções detalhadas passo a passo.
+
+---
+
+## Fluxo de Utilização
+
+O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam puladas:
+
+```
+1. Configurar Wallets (owner via script + recycler via Lace/script)
+         |
+2. Criar Usuários no frontend (owner e recycler, com wallet address + pubkey hash)
+         |
+3. Criar Container (associado a um proprietário)
+         |
+4. Inserir Garrafa -> associada a um container e um usuário
+   |  (garrafa: inserted | recompensa: 10 Greentoken)
+   |  [botão bloqueado até confirmação on-chain da garrafa anterior]
+         |
+5. Container >= 90% -> botão "Compactar" habilitado
+   |  (garrafa: inserted -> compacted | recompensa: 5 Greentoken)
+   |  [container muda para status "compactado" após compactação]
+         |
+6. Criar Rota de Coleta
+   |  (selecionar caminhão disponível + containers compactados + estação de destino)
+         |
+7. Coletar Paradas da Rota (uma a uma)
+   |  (garrafa: compacted -> collected | recompensa: 5 Greentoken)
+   |  [garrafas saem do container e ficam associadas ao caminhão]
+   |  [container volta a status "ativo" com volume zerado]
+         |
+8. Entregar na Estação (só após TODAS as paradas coletadas)
+   |  (garrafa: collected -> atstation | recompensa: 10 Greentoken)
+   |  [garrafas saem do caminhão e ficam associadas à estação]
+         |
+9. Triturar na Estação
+   (garrafa: atstation -> shredded | recompensa: 20 Greentoken)
+```
+
+**Total de recompensa por garrafa: 50 Greentoken**
+
+---
+
 ## Próximos Passos
 
 - [x] Frontend web para recicladores e owners
 - [x] Implementar lógica de rotas de caminhão (CRUD de caminhões, criação de rotas, coleta de paradas)
-- [ ] Adicionar autenticação na API (verificar se é necessário)
+- [x] Estações de tratamento e trituração
+- [x] Bloqueios de fluxo no frontend (evitar etapas fora de ordem)
+- [x] Cooldown de blockchain na criação de garrafas
+- [x] Correção de recompensas em operações batch multi-usuário
+- [ ] Lidar com delays de operações na blockchain
+- [ ] Adicionar autenticação na API
 - [ ] Testes automatizados para o backend
 - [ ] Migrar de `child_process` para `cardano-serialization-lib`
 - [ ] Deploy em produção (mainnet)
-
-Fluxo deve ser
-1. Usuário é criado
-2. Container é criado
-3. É criada (inserida) uma garrafa associada a um container e usuário (garraga inserted)
-4. Após n garrafas serem adicionadas a um container ele vai enchendo, ao ter 90% da capacidade ocupada ele pode ser compactado (garrafa inserted -> compacted)
-5. Após todas as garrafas do container terem sido compactadas ele pode ser coletado por um caminhão em uma rota
-6. Caminhão é criado, estação de tratamento é criada, rota pode ser criada com n containeres ocupados, uma caminhão e uma estação
-7. Após a coleta as garrafas de um container, elas param de ser associadas ao container e ficam associadas ao caminhão (o container fica com ocupação vazia) (garrafa compacted -> colected)
-8. Após o caminhão terminar as coletas de sua rota ele leva as garrafas a uma estação de tratamento (ponto final da rota). Ao chegar na estação de tratamento as garrafas param de ser associadas ao caminhão e passam a ser associadas a estação de tratamento (garrafa colected -> atstation)
-9. Na estação de tratamento existem n garrafas que podem ser trituradas de uma vez (atstation -> shreded)
-
-a cada estágio da garrafa é dada a recompensa em greentoken ao usuário que criou (inseriu) ela
-
-TODO:
-1. Ao criar uma garrafa, deve-se esperar um tempo para as operações da blockchain serem feitar antes de poder criar outra garrafa, se não esperar é lançado um erro, implemente um bloqueio no botão de criação de garrafa até que a blockchain estaja pronta para criar outra garrafa.
-2. Na tabela de garrafas em BottllesPage.tsx, remova as colunas "Container" e "Estação" e crie uma nova coluna do tipo "Localização" ou algo do tipo onde se a garrafa estiver em um container mostra "Container - Nome do Container" se estiver num caminhão mostra "Caminhão - Placa do caminhão", se estiver em uma estção mostra "Estação - Nome da Estação"
-3. Ao compactar um container em ContainersPage.tsx o botão de ação ainda permanece como "compactar", altere o status do container para compactado e bloqueie o botão para não compactar novamente
-4. Em RoutesPage.tsx, altere a dialog de criação de rota para ao invés de mostrar containers cheios mostrar apenas os containers que já foram compactados (quando um container está com > 90% da capacidade ocupada ele pode ser compactado para então poder ser coletado)
-5. Percebi que operações em batch não estão gerando as recompensas corretamente, por exemplo para duas garrafas, uma criada pelo usuário 1 e outra pelo usuário 2, as recompensas pela inserção foram dadas corretamente, mas como elas estão no mesmo container, as operações de compactar, coletar, na estação e triturar não estão dando recompensas para o usuário 2, apenas para o usuário 1
-6. Atualize README.md e SETUP-LOCAL (se necessário) para incluir as alterações feitas recementemente, o estado atual do projeto e explicar o fluxo citado anteriormente

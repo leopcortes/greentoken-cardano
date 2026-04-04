@@ -24,7 +24,7 @@ function App() {
           </div>
         </div>
         <div>
-          <h1 className="text-base font-normal tracking-tight text-right">Projeto Final de Engenharia de Computação</h1>
+          <h1 className="text-base font-normal tracking-tight text-right">Projeto de Conclusão de Curso de Eng. de Computação</h1>
           <p className="text-xs text-muted-foreground text-right">Ana Paula Oliveira da Nóbrega Costa</p>
           <p className="text-xs text-muted-foreground text-right">Leonardo Pereira Côrtes</p>
         </div>

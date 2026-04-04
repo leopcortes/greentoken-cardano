@@ -37,6 +37,7 @@ export const STOP_STATUS_LABELS: Record<string, string> = {
 export const CONTAINER_STATUS_LABELS: Record<string, string> = {
   active: 'Ativo',
   full: 'Cheio',
+  compacted: 'Compactado',
   in_route: 'Em rota de coleta',
   maintenance: 'Manutenção',
 };

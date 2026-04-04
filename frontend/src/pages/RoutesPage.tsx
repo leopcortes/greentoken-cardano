@@ -80,7 +80,7 @@ export function RoutesPage() {
     try {
       const [trucksData, containersData, stationsData] = await Promise.all([
         getTrucks(),
-        getContainers({ status: 'full' }),
+        getContainers({ status: 'compacted' }),
         getStations(),
       ]);
       setAvailableTrucks(trucksData.filter(t => t.status === 'available'));
@@ -336,7 +336,7 @@ export function RoutesPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhum container cheio no momento</p>
+                <p className="text-sm text-muted-foreground">Nenhum container compactado no momento</p>
               )}
             </div>
             <div className="space-y-2">
@@ -373,7 +373,7 @@ export function RoutesPage() {
 
       {/* Route Detail Dialog */}
       <Dialog open={!!detailRoute} onOpenChange={() => setDetailRoute(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Rota - {detailRoute?.id}</DialogTitle>
           </DialogHeader>

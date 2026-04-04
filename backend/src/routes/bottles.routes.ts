@@ -24,10 +24,13 @@ router.get('/', async (req: Request, res: Response) => {
         SELECT
           b.*,
           c.name AS container_name,
-          s.name AS station_name
+          s.name AS station_name,
+          t.license_plate AS truck_license_plate
         FROM bottles b
         LEFT JOIN containers c ON c.id = b.container_id
         LEFT JOIN stations s ON s.id = b.station_id
+        LEFT JOIN routes r ON r.id = b.route_id
+        LEFT JOIN trucks t ON t.id = r.truck_id
         ORDER BY b.inserted_at DESC
       `)
       bottles = bottlesDb.parseRows(rows)

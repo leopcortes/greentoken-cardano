@@ -32,6 +32,7 @@ export interface Bottle {
   route_id: string | null;
   station_id: string | null;
   station_name: string | null;
+  truck_license_plate: string | null;
   bottle_id_text: string;
   bottle_id_hex: string;
   volume_ml: number;
@@ -62,6 +63,7 @@ export interface Reward {
   id: string;
   user_id: string;
   bottle_id: string;
+  bottle_name?: string;
   tx_id: string | null;
   stage: string;
   greentoken_amount: number;

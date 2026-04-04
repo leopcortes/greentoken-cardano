@@ -138,8 +138,14 @@ export async function compactContainer(containerId: string) {
     }
   }
 
-  // Atualiza estagio em batch no banco
-  const count = await bottlesDb.compactByContainer(id)
+  // Atualiza estagio apenas para garrafas com tx submetida com sucesso
+  const successIds = results.map(r => r.bottleId)
+  const count = await bottlesDb.compactByIds(successIds)
+
+  // Marca container como compactado (pronto para coleta)
+  if (count > 0) {
+    await containersDb.updateStatus(id, 'compacted')
+  }
 
   return { containerId: id, compacted: count, txs: results }
 }
@@ -202,8 +208,9 @@ export async function collectContainer(containerId: string, routeId: string) {
     }
   }
 
-  // Batch: move garrafas para a rota e marca como collected
-  const count = await bottlesDb.collectByContainer(cId, rId)
+  // Batch: move apenas garrafas com tx submetida para a rota
+  const successIds = results.map(r => r.bottleId)
+  const count = await bottlesDb.collectByIds(successIds, rId)
 
   // Reseta container
   await containersDb.updateVolume(cId, 0)
@@ -262,8 +269,9 @@ export async function deliverToStation(routeId: string, stationId: string) {
     }
   }
 
-  // Batch: move garrafas para a estacao
-  const count = await bottlesDb.deliverByRoute(rId, sId)
+  // Batch: move apenas garrafas com tx submetida para a estacao
+  const successIds = results.map(r => r.bottleId)
+  const count = await bottlesDb.deliverByIds(successIds, sId)
 
   return { routeId: rId, stationId: sId, delivered: count, txs: results }
 }
@@ -362,8 +370,9 @@ export async function shredStation(stationId: string) {
     }
   }
 
-  // Batch: atualiza todas as garrafas no banco
-  const count = await bottlesDb.shredByStation(sId)
+  // Batch: atualiza apenas garrafas com tx submetida
+  const successIds = results.map(r => r.bottleId)
+  const count = await bottlesDb.shredByIds(successIds)
 
   return { stationId: sId, shredded: count, txs: results }
 }

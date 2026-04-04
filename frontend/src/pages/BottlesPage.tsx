@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,10 +12,10 @@ import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSortable } from '@/hooks/useSortable';
-import { SquareArrowRightEnter, Package, Truck, Factory, Recycle } from 'lucide-react';
+import { SquareArrowRightEnter, Package, Truck, Factory, Recycle, Loader2 } from 'lucide-react';
 import {
   getBottles, getUsers, getContainers, getNextBottleNumber,
-  createBottle,
+  createBottle, getBottle,
   type Bottle, type User, type Container,
 } from '@/services/api';
 import { truncateMiddle } from '@/lib/truncate';
@@ -54,11 +54,42 @@ export function BottlesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [nextName, setNextName] = useState('');
 
+  // Blockchain cooldown: after creating, poll until utxo is confirmed
+  const [blockchainBusy, setBlockchainBusy] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Options for selects
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [containerOptions, setContainerOptions] = useState<Container[]>([]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortable<Bottle>(bottles);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setBlockchainBusy(false);
+  }, []);
+
+  const startPolling = useCallback((bottleId: string) => {
+    setBlockchainBusy(true);
+    pollRef.current = setInterval(async () => {
+      try {
+        const data = await getBottle(bottleId);
+        if (data.bottle.utxo_hash) {
+          stopPolling();
+          fetchBottles();
+          toast.success('Blockchain pronta. Você pode criar outra garrafa.');
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 5000);
+  }, [stopPolling]);
+
+  // Cleanup on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const fetchBottles = async () => {
     try {
@@ -153,6 +184,7 @@ export function BottlesPage() {
         description: `tx: ${result.tx_hash}`,
       });
       setDialogOpen(false);
+      startPolling(result.bottle.id);
       fetchBottles();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar garrafa');
@@ -176,7 +208,10 @@ export function BottlesPage() {
           <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={fetchBottles}>Atualizar</Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" onClick={openCreateDialog}>+ Nova Garrafa</Button>
+              <Button size="sm" onClick={openCreateDialog} disabled={blockchainBusy}>
+                {blockchainBusy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {blockchainBusy ? 'Aguardando blockchain...' : '+ Nova Garrafa'}
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -277,8 +312,7 @@ export function BottlesPage() {
               <TableRow>
                 <TableHead>{SH('Garrafa', 'bottle_id_text')}</TableHead>
                 <TableHead>{SH('Usuário', 'user_id')}</TableHead>
-                <TableHead>Container</TableHead>
-                <TableHead>Estação</TableHead>
+                <TableHead>Localização</TableHead>
                 <TableHead>{SH('Volume', 'volume_ml')}</TableHead>
                 <TableHead>{SH('Estágio', 'current_stage')}</TableHead>
                 <TableHead>UTXO</TableHead>
@@ -307,32 +341,51 @@ export function BottlesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {bottle.container_id ? (
-                        <div>
-                          <div className="text-sm leading-tight">{bottle.container_name}</div>
-                          <div className="flex items-center gap-0.5 mt-0.5">
-                            <span className="hidden 2xl:block font-mono text-[11px] text-muted-foreground">
-                              {truncateMiddle(bottle.container_id, 20, 5)}
-                            </span>
-                            <span className="block 2xl:hidden font-mono text-[11px] text-muted-foreground">
-                              {truncateMiddle(bottle.container_id, 8, 4)}
-                            </span>
-                            <CopyButton className='ml-1' value={bottle.container_id} />
-                          </div>
-                        </div>
-                      ) : <span className="text-muted-foreground">-</span>}
-                    </TableCell>
-                    <TableCell>
-                      {bottle.station_id ? (
-                        <div>
-                          <div className="text-sm leading-tight">{bottle.station_name}</div>
-                          <div className="flex items-center gap-0.5 mt-0.5">
-                            <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.station_id, 20, 5)}</span>
-                            <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.station_id, 8, 4)}</span>
-                            <CopyButton className='ml-1' value={bottle.station_id} />
-                          </div>
-                        </div>
-                      ) : <span className="text-muted-foreground">-</span>}
+                      {(() => {
+                        if (bottle.station_id) {
+                          return (
+                            <div>
+                              <div className="text-sm leading-tight">
+                                <span className="text-purple-600 font-medium">Estação</span> - {bottle.station_name}
+                              </div>
+                              <div className="flex items-center gap-0.5 mt-0.5">
+                                <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.station_id, 20, 5)}</span>
+                                <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.station_id, 8, 4)}</span>
+                                <CopyButton className='ml-1' value={bottle.station_id} />
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (bottle.route_id) {
+                          return (
+                            <div>
+                              <div className="text-sm leading-tight">
+                                <span className="text-orange-600 font-medium">Caminhão</span> - {bottle.truck_license_plate ?? bottle.route_id}
+                              </div>
+                              <div className="flex items-center gap-0.5 mt-0.5">
+                                <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.route_id, 20, 5)}</span>
+                                <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.route_id, 8, 4)}</span>
+                                <CopyButton className='ml-1' value={bottle.route_id} />
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (bottle.container_id) {
+                          return (
+                            <div>
+                              <div className="text-sm leading-tight">
+                                <span className="text-blue-600 font-medium">Container</span> - {bottle.container_name}
+                              </div>
+                              <div className="flex items-center gap-0.5 mt-0.5">
+                                <span className="font-mono text-[11px] text-muted-foreground hidden 2xl:block">{truncateMiddle(bottle.container_id, 20, 5)}</span>
+                                <span className="font-mono text-[11px] text-muted-foreground block 2xl:hidden">{truncateMiddle(bottle.container_id, 8, 4)}</span>
+                                <CopyButton className='ml-1' value={bottle.container_id} />
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <span className="text-muted-foreground">-</span>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-sm whitespace-nowrap">
                       {Number(bottle.volume_ml).toFixed(1)}ml
@@ -369,7 +422,7 @@ export function BottlesPage() {
               })}
               {!loading && bottles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhuma garrafa encontrada
                   </TableCell>
                 </TableRow>

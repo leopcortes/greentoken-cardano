@@ -23,7 +23,7 @@ CREATE TABLE containers (
   capacity_liters       NUMERIC(10,1) NOT NULL,
   current_volume_liters NUMERIC(10,1) NOT NULL DEFAULT 0,
   status                VARCHAR(20)  NOT NULL DEFAULT 'active'
-                          CHECK (status IN ('active', 'full', 'in_route', 'maintenance')),
+                          CHECK (status IN ('active', 'full', 'compacted', 'in_route', 'maintenance')),
   last_updated          TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 

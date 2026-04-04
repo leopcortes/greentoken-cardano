@@ -12,13 +12,12 @@ Guia passo a passo para configurar o ambiente de desenvolvimento local com carda
 4. [Sincronizar via Mithril (recomendado)](#4-sincronizar-via-mithril-recomendado)
 5. [Iniciar o nó Cardano](#5-iniciar-o-nó-cardano)
 6. [Instalar e configurar PostgreSQL](#6-instalar-e-configurar-postgresql)
-7. [Gerar chaves do operador e da policy](#7-gerar-chaves-do-operador-e-da-policy)
-8. [Obter tADA (ADA de teste)](#8-obter-tada-ada-de-teste)
-9. [Configurar e iniciar o backend](#9-configurar-e-iniciar-o-backend)
-10. [Configurar e iniciar o frontend](#10-configurar-e-iniciar-o-frontend)
-11. [Testar o fluxo completo](#11-testar-o-fluxo-completo)
-12. [Comandos úteis](#12-comandos-úteis)
-13. [Solução de problemas](#13-solução-de-problemas)
+7. [Configurar e iniciar o backend](#8-configurar-e-iniciar-o-backend)
+8. [Configurar e iniciar o frontend](#9-configurar-e-iniciar-o-frontend)
+9. [Configurar wallets e chaves](#7-configurar-wallets-e-chaves)
+10. [Testar o fluxo completo](#10-testar-o-fluxo-completo)
+11. [Comandos úteis](#11-comandos-úteis)
+12. [Solução de problemas](#12-solução-de-problemas)
 
 ---
 
@@ -234,8 +233,8 @@ Adicione ao `~/.bashrc`:
 
 ```bash
 alias cardano-start='nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 & echo Nó iniciado'
-alias cardano-stop='pkill -f cardano-node && echo Nó parado'
-alias cardano-status='cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket'
+alias cardano-end='pkill -f cardano-node && echo Nó parado'
+alias cardano-report='cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket'
 alias cardano-log='tail -f ~/cardano/node.log'
 
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
@@ -291,71 +290,16 @@ Deve listar: `users`, `containers`, `trucks`, `routes`, `route_stops`, `bottles`
 
 ---
 
-## 7. Gerar chaves do operador e da policy
+## 7. Configurar e iniciar o backend
 
-Os scripts de transação precisam de chaves de assinatura (`.skey`) que não são commitadas no repositório por segurança.
-
-### 7.1 Definir variáveis de ambiente
-
-(Já deve estar configurado em `~/.bashrc` pelo passo 5.4)
-
-```bash
-export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
-export CARDANO_NODE_MAGIC=1
-```
-
-### 7.2 Gerar chaves do operador
-
-```bash
-scripts/setup-wallet.sh
-```
-
-Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`, `bottle.addr`
-
-### 7.3 Gerar chaves da minting policy
-
-```bash
-scripts/setup-policy.sh
-```
-
-Gera: `assets/policy/policy.vkey`, `policy.skey`, `policy.script`, `policyID`
-
-> **ATENÇÃO:** Se você regenerar as chaves, o `policyID` muda e tokens antigos ficam incompatíveis. Guarde as chaves com segurança.
-
----
-
-## 8. Obter tADA (ADA de teste)
-
-O operador precisa de tADA para pagar as taxas de transação.
-
-### Opção A: Faucet oficial
-
-1. Verifique o endereço do operador: `cat assets/wallet/payment.addr`
-2. Acesse: **https://docs.cardano.org/cardano-testnets/tools/faucet**
-3. Selecione **Preprod**, cole o endereço e solicite os fundos
-
-### Opção B: Carteira Lace (ou outra)
-
-Se você já tem tADA em uma carteira como a Lace (extensão Chrome), envie pelo menos **10 tADA** para o endereço do operador exibido pelo `setup-wallet.sh`.
-
-### Verificar recebimento
-
-```bash
-scripts/query-balance.sh
-```
-
----
-
-## 9. Configurar e iniciar o backend
-
-### 9.1 Instalar dependências
+### 7.1 Instalar dependências
 
 ```bash
 cd backend
 npm install
 ```
 
-### 9.2 Configurar o .env
+### 7.2 Configurar o .env
 
 ```bash
 cp .env.example .env
@@ -381,13 +325,13 @@ PORT=3000
 CONFIRMATION_POLL_MS=15000
 ```
 
-### 9.3 Iniciar o backend
+### 7.3 Iniciar o backend
 
 ```bash
 npm run dev
 ```
 
-### 9.4 Testar o health check
+### 7.4 Testar o health check
 
 ```bash
 curl http://localhost:3000/health
@@ -397,22 +341,22 @@ Resposta esperada: `{"status":"ok","db":"connected"}`
 
 ---
 
-## 10. Configurar e iniciar o frontend
+## 8. Configurar e iniciar o frontend
 
 O frontend é um dashboard React que consome a API REST do backend.
 
-### 10.1 Pré-requisitos do frontend
+### 8.1 Pré-requisitos do frontend
 
 O frontend usa **Vite 5** + **TailwindCSS v3**, compatível com Node.js 18+. As mesmas dependências de Node.js do backend são suficientes.
 
-### 10.2 Instalar dependências
+### 8.2 Instalar dependências
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 10.3 Iniciar o servidor de desenvolvimento
+### 8.3 Iniciar o servidor de desenvolvimento
 
 ```bash
 npm run dev
@@ -420,20 +364,21 @@ npm run dev
 
 O frontend estará disponível em **http://localhost:5173**.
 
-### 10.4 Proxy para o backend
+### 8.4 Proxy para o backend
 
 O Vite está configurado para redirecionar chamadas `/api/*` para `http://localhost:3000` (backend). Não é necessário configurar CORS - basta que o backend esteja rodando na porta 3000.
 
-### 10.5 Funcionalidades do dashboard
+### 8.5 Funcionalidades do dashboard
 
 | Aba | Funcionalidades |
 |-----|----------------|
-| **Garrafas** | Listar, criar garrafas, avançar estágio (blockchain), ver UTXO |
-| **Usuários** | Listar, criar usuários, ver recompensas Greentoken |
-| **Containers** | Listar, criar containers, barra de volume visual |
-| **Rotas** | Cadastrar caminhões, criar rotas de coleta, coletar paradas |
+| **Usuários** | Listar, criar usuários (reciclador/proprietário), ver recompensas Greentoken |
+| **Garrafas** | Listar garrafas com localização unificada (Container/Caminhão/Estação), criar garrafas (com cooldown de blockchain), ver UTXO |
+| **Containers** | Listar, criar containers, barra de volume visual, compactar (>= 90%), status compactado |
+| **Rotas** | Cadastrar caminhões, criar rotas com containers compactados, coletar paradas, entregar na estação |
+| **Estações** | Listar, criar estações de tratamento, ver garrafas, triturar garrafas |
 
-### 10.6 Stack técnica
+### 8.6 Stack técnica
 
 - **React 18** + TypeScript
 - **Vite 5** (bundler, compatível com Node 18)
@@ -443,27 +388,132 @@ O Vite está configurado para redirecionar chamadas `/api/*` para `http://localh
 
 ---
 
-## 11. Testar o fluxo completo
+## 9. Configurar wallets e chaves
 
-### 11.1 Criar/importar um usuário
+O sistema usa dois tipos de wallet: a **wallet do operador (owner)** que financia todas as transações on-chain, e as **wallets dos recicladores (recyclers)** que apenas identificam os usuários e recebem recompensas Greentoken.
 
-**Opção A - Importar carteira externa (Lace, Nami, etc.):**
+### 9.1 Definir variáveis de ambiente
 
-```bash
-scripts/import-user.sh user1 addr_test1q... "Nome do Usuário" "email@test.com"
-```
-
-O script extrai o pubkey hash automaticamente do endereço, salva os dados localmente e no banco de dados.
-
-**Opção B - Gerar via cardano-cli:**
+(Já deve estar configurado em `~/.bashrc` pelo passo 5.4)
 
 ```bash
-scripts/create-user.sh user1 "Nome" "email@test.com"
+export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
+export CARDANO_NODE_MAGIC=1
 ```
 
-Gera chaves locais e insere no banco.
+### 9.2 Criar a wallet do operador (owner)
 
-**Opção C - Via API:**
+A wallet do operador é usada para assinar e financiar **todas** as transações na blockchain (mint de NFTs, transições de estágio, recompensas). Ela deve ser criada via script:
+
+```bash
+scripts/setup-wallet.sh
+```
+
+Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`, `bottle.addr`
+
+Anote o endereço exibido ao final (`payment.addr`), ele será usado no próximo passo para receber tADA e, depois, para criar o usuário owner no frontend.
+
+### 9.3 Financiar a wallet do operador com tADA
+
+A wallet do operador **precisa de tADA** para pagar as taxas de todas as transações on-chain. Sem fundos, nenhuma operação (criar garrafa, compactar, coletar, etc.) funcionará.
+
+1. Copie o endereço do operador:
+   ```bash
+   cat assets/wallet/payment.addr
+   ```
+2. Acesse o faucet oficial da testnet Preprod:
+   **https://docs.cardano.org/cardano-testnets/tools/faucet**
+3. Selecione **Preprod**, cole o endereço e solicite os fundos (10.000 tADA)
+4. Verifique o recebimento (pode levar ~1 minuto):
+   ```bash
+   scripts/query-balance.sh
+   ```
+
+### 9.4 Criar o usuário owner no frontend
+
+Com a wallet do operador criada e financiada:
+
+1. Acesse o frontend em **http://localhost:5173** (backend precisa estar rodando)
+2. Na aba **Usuários**, clique em **Novo Usuário**
+3. Selecione o cargo **owner**
+4. Preencha nome, email e cole o endereço da wallet do operador (`payment.addr`)
+
+### 9.5 Criar wallets dos recicladores (recyclers)
+
+As wallets dos recicladores servem apenas para **identificar o usuário** e receber recompensas Greentoken. As transações on-chain são financiadas pela wallet do operador, portanto **os recicladores não precisam de tADA** em suas wallets.
+
+**Opção recomendada: Carteira Lace (extensão Chrome)**
+
+1. Instale a extensão **Lace Wallet** no Chrome: https://www.lace.io/
+2. Crie uma nova wallet e selecione a rede **Preprod**
+3. Copie o endereço da wallet (formato `addr_test1...`)
+
+**Opção alternativa: Via script com cardano-cli**
+
+Se preferir, crie manualmente (ex: para testes automatizados):
+
+```bash
+# Crie um diretório para o reciclador
+mkdir -p assets/users/recycler1
+
+# Gere o par de chaves
+cardano-cli address key-gen \
+  --verification-key-file assets/users/recycler1/payment.vkey \
+  --signing-key-file assets/users/recycler1/payment.skey
+
+# Derive o endereço
+cardano-cli address build \
+  --payment-verification-key-file assets/users/recycler1/payment.vkey \
+  --testnet-magic $CARDANO_NODE_MAGIC \
+  --out-file assets/users/recycler1/payment.addr
+
+cat assets/users/recycler1/payment.addr
+```
+
+### 7.6 Criar o usuário recycler no frontend
+
+Com o endereço da wallet do reciclador em mãos:
+
+1. Na aba **Usuários**, clique em **Novo Usuário**
+2. Selecione o cargo **recycler**
+3. Preencha nome, email e cole o endereço da wallet do reciclador
+4. Para o campo `pubkey_hash`, gere-o a partir do endereço:
+   ```bash
+   scripts/get-pubkey-hash.sh <ENDERECO_DO_RECYCLER>
+   ```
+
+### 7.7 Gerar chaves da minting policy
+
+```bash
+scripts/setup-policy.sh
+```
+
+Gera: `assets/policy/policy.vkey`, `policy.skey`, `policy.script`, `policyID`
+
+> **ATENÇÃO:** Se você regenerar as chaves, o `policyID` muda e tokens antigos ficam incompatíveis. Guarde as chaves com segurança.
+
+---
+
+## 10. Testar o fluxo completo
+
+
+### 10.1 Via Dashboard (Front-end)
+
+1. Acesse **http://localhost:5173** (com backend rodando)
+2. Na aba **Usuários**, verifique que os usuários `owner` e `recycler` já foram criados (passos 9.4 e 9.6)
+3. Na aba **Containers**, crie um container (associado ao owner) com capacidade pequena (ex: 1L) para facilitar testes
+4. Na aba **Garrafas**, crie garrafas associadas ao usuário e container. Aguarde o botão "Nova Garrafa" desbloquear (confirmação on-chain ~15s) antes de criar a próxima
+5. Na aba **Containers**, quando o container atingir >= 90%, clique em **Compactar** (o status muda para "Compactado")
+6. Na aba **Estações**, crie uma estação de tratamento
+7. Na aba **Rotas**, cadastre um caminhão, depois crie uma rota selecionando o caminhão + container compactado + estação de destino
+8. Nos **Detalhes da rota**, colete cada parada individualmente
+9. Após todas as paradas coletadas, clique em **Entregar Garrafas na Estação**
+10. Na aba **Estações**, clique em **Ver Garrafas** e depois **Triturar Todas**
+11. Na aba **Usuários**, clique em **Recompensas** para ver o total de Greentoken acumulado
+
+### 10.2 Via API
+
+#### 10.2.1 Criar um usuário
 
 ```bash
 curl -X POST http://localhost:3000/users \
@@ -477,15 +527,7 @@ curl -X POST http://localhost:3000/users \
   }'
 ```
 
-### 11.2 Criar uma garrafa
-
-**Via script (grava na blockchain + banco):**
-
-```bash
-scripts/create-bottle.sh garrafa-001 user1
-```
-
-**Via API:**
+#### 10.2.2 Criar uma garrafa
 
 ```bash
 curl -X POST http://localhost:3000/bottles \
@@ -493,7 +535,7 @@ curl -X POST http://localhost:3000/bottles \
   -d '{"bottle_id": "garrafa-001", "user_id": "<UUID>"}'
 ```
 
-### 11.3 Acompanhar a confirmação
+#### 10.2.3 Acompanhar a confirmação
 
 O confirmation worker verifica a cada 15 segundos. Observe os logs do backend:
 
@@ -509,16 +551,7 @@ curl http://localhost:3000/bottles/<UUID>
 
 Quando confirmado, `utxo_hash` será preenchido e uma recompensa de 10 Greentoken será registrada.
 
-### 11.4 Avançar o estágio
-
-**Via script:**
-
-```bash
-# Use o TX_HASH#0 exibido pelo create-bottle.sh
-scripts/advance-stage.sh compacted garrafa-001 "$USER_ADDR" "$TX_HASH#0"
-```
-
-**Via API:**
+#### 10.2.4 Avançar o estágio
 
 ```bash
 curl -X POST http://localhost:3000/bottles/<UUID>/advance \
@@ -526,13 +559,13 @@ curl -X POST http://localhost:3000/bottles/<UUID>/advance \
   -d '{"stage": "compacted"}'
 ```
 
-### 11.5 Verificar recompensas
+#### 10.2.5 Verificar recompensas
 
 ```bash
 curl http://localhost:3000/users/<UUID>/rewards
 ```
 
-### 11.6 Testar caminhões e rotas
+#### 10.2.6 Testar caminhões e rotas
 
 ```bash
 # Cadastrar caminhão
@@ -549,17 +582,9 @@ curl -X POST http://localhost:3000/routes \
 curl -X POST http://localhost:3000/routes/stops/<STOP_UUID>/collect
 ```
 
-### 11.7 Testar via frontend
-
-1. Acesse **http://localhost:5173** (com backend rodando)
-2. Na aba **Usuários**, crie um usuário com wallet address e pubkey hash
-3. Na aba **Garrafas**, crie uma garrafa e avance os estágios
-4. Na aba **Containers**, crie um container e observe a barra de volume
-5. Na aba **Rotas**, cadastre um caminhão, crie uma rota e colete as paradas
-
 ---
 
-## 12. Comandos úteis
+## 11. Comandos úteis
 
 ### Variáveis de ambiente (adicionar ao ~/.bashrc)
 
@@ -574,10 +599,6 @@ export CARDANO_NODE_MAGIC=1
 |--------|-----------|-----|
 | `scripts/setup-wallet.sh` | Gera chaves do operador | `scripts/setup-wallet.sh` |
 | `scripts/setup-policy.sh` | Gera minting policy | `scripts/setup-policy.sh` |
-| `scripts/import-user.sh` | Importa carteira externa | `scripts/import-user.sh <ID> <ADDR> [NOME] [EMAIL]` |
-| `scripts/create-user.sh` | Cria usuário (cardano-cli) | `scripts/create-user.sh <ID> [NOME] [EMAIL]` |
-| `scripts/create-bottle.sh` | Cria garrafa (blockchain + banco) | `scripts/create-bottle.sh <BOTTLE_ID> <USER_ID>` |
-| `scripts/advance-stage.sh` | Avança estágio | `scripts/advance-stage.sh <STAGE> <BOTTLE_ID> <USER_ADDR> <TX_IN>` |
 | `scripts/query-bottle.sh` | Consulta UTxOs no script | `scripts/query-bottle.sh [TX_HASH]` |
 | `scripts/query-balance.sh` | Consulta saldo | `scripts/query-balance.sh [ADDR\|USER_ID]` |
 
@@ -593,7 +614,7 @@ cardano-cli conway query utxo --address <ADDR> --testnet-magic 1 --socket-path ~
 
 ---
 
-## 13. Solução de problemas
+## 12. Solução de problemas
 
 ### Nó não inicia - `GenesisHashMismatch`
 

@@ -309,7 +309,7 @@ export function StationsPage() {
 
       {/* Station Bottles Dialog */}
       <Dialog open={!!selectedStation} onOpenChange={() => setSelectedStation(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Garrafas - {selectedStation?.name}</DialogTitle>
           </DialogHeader>
