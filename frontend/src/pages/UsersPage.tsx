@@ -315,8 +315,8 @@ export function UsersPage() {
                       <TableCell className='flex gap-2'>
                         <div className="text-sm font-medium leading-tight">{r.bottle_name}</div>
                         <div className="flex items-center gap-0.5">
-                          <span className="font-mono text-xs">{truncateMiddle(r.bottle_id, 10, 4)}</span>
-                          <CopyButton className='ml-1' value={r.bottle_id} />
+                          <span className="font-mono text-muted-foreground text-xs">({truncateMiddle(r.bottle_id, 10, 4)})</span>
+                          <CopyButton value={r.bottle_id} />
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">{t(STAGE_LABELS, r.stage)}</TableCell>

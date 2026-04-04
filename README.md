@@ -103,6 +103,7 @@ greentoken-cardano/
 |   |-- _db-helper.sh                 # Helper: integração scripts <-> PostgreSQL
 |   |-- setup-wallet.sh               # Setup: chaves do operador + endereço do script
 |   |-- setup-policy.sh               # Setup: minting policy + policyID
+|   |-- split-utxos.sh                # Fragmenta UTXO do operador para operações batch
 |   |-- query-balance.sh              # Consulta saldo de qualquer endereço
 |   |-- get-pubkey-hash.sh            # Helper: gerar pubkey hash a partir do addr da wallet
 |-- SETUP-LOCAL.md                    # Guia completo de configuração local
@@ -121,11 +122,11 @@ greentoken-cardano/
 | `setup-wallet.sh` | Gera chaves do operador e endereço do script | `scripts/setup-wallet.sh` |
 | `setup-policy.sh` | Gera minting policy e policyID | `scripts/setup-policy.sh` |
 
-### Consulta
+### Operação
 
 | Script | Função | Uso |
 |--------|--------|-----|
-| `query-bottle.sh` | UTxOs no endereço do script | `scripts/query-bottle.sh [TX_HASH]` |
+| `split-utxos.sh` | Fragmenta o UTXO do operador em N UTXOs menores | `scripts/split-utxos.sh [N]` (padrão: 10) |
 | `query-balance.sh` | Saldo de qualquer endereço | `scripts/query-balance.sh [ADDR\|USER_ID]` |
 
 
@@ -203,6 +204,10 @@ scripts/setup-policy.sh
 # 3. Financiar wallet do operador com tADA (via faucet testnet Preprod)
 cat assets/wallet/payment.addr
 # Cole o endereço no faucet: https://docs.cardano.org/cardano-testnets/tools/faucet
+
+# 3.1. Fragmentar UTXOs do operador (necessário para operações batch)
+scripts/split-utxos.sh 100
+# Aguarde ~20s e verifique: scripts/query-balance.sh
 
 # 4. Iniciar nó e backend
 cardano-start
@@ -319,7 +324,7 @@ O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam p
 - [x] Bloqueios de fluxo no frontend (evitar etapas fora de ordem)
 - [x] Cooldown de blockchain na criação de garrafas
 - [x] Correção de recompensas em operações batch multi-usuário
-- [ ] Lidar com delays de operações na blockchain
+- [x] Lidar com delays de operações na blockchain (validação de UTXOs confirmados + fragmentação de UTXOs)
 - [ ] Adicionar autenticação na API
 - [ ] Testes automatizados para o backend
 - [ ] Migrar de `child_process` para `cardano-serialization-lib`

@@ -108,8 +108,14 @@ export async function compactContainer(containerId: string) {
     throw new Error('Nenhuma garrafa inserted encontrada neste container')
   }
 
-  // Filtra garrafas com UTxO valido
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
   const readyBottles = bottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < bottles.length) {
+    const pending = bottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
@@ -192,8 +198,14 @@ export async function collectContainer(containerId: string, routeId: string) {
     throw new Error('Nenhuma garrafa compactada encontrada neste container')
   }
 
-  // Filtra garrafas com UTxO valido
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
   const readyBottles = bottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < bottles.length) {
+    const pending = bottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
@@ -267,8 +279,14 @@ export async function deliverToStation(routeId: string, stationId: string) {
     throw new Error('Nenhuma garrafa collected encontrada nesta rota')
   }
 
-  // Filtra garrafas com UTxO valido
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
   const readyBottles = collectedBottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < collectedBottles.length) {
+    const pending = collectedBottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)

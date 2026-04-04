@@ -98,6 +98,7 @@ export interface Station {
   latitude: number | null;
   longitude: number | null;
   created_at: string;
+  bottle_count: number;
 }
 
 export interface RouteStop {

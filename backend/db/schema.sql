@@ -171,12 +171,80 @@ VALUES (
   'owner',
   'Owner Greentoken',
   'owner@greentoken.io',
-  'addr_test1wz0j33dc4d75g0wy4ttvxg0s2xm420uurn9h7ytxtrq9lysa0ae0e',  
-  'placeholder_pubkeyhash' 
+  'addr_test1vzrpfw7aqpsfxdtx2f7t5jjmqwkp09suf0quql3qgw39xfs7qhqx2',
+  '8614bbdd0060933566527cba4a5b03ac17961c4bc1c07e2043a25326'
+);
+
+INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
+VALUES (
+  'recycler',
+  'Leo 1',
+  'leo.13.cortes@gmail.com',
+  'addr_test1qq22tnn379fzry3wrsnxdanucmd47vlempk9326fj0txy60pf7akm2qqn2vlurcde97kw0kvwe438uzmha9c3tmfdm9qj3z74t',
+  '14a5ce71f15221922e1c2666f67cc6db5f33f9d86c58ab4993d66269'
+);
+
+INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
+VALUES (
+  'recycler',
+  'Leo 2',
+  'leo.pereira.cortes@gmail.com',
+  'addr_test1qr35f3ukkfqhua4595870atp5uzanp2f899fj75z8gma7g5225d8dp9lzl8aqdnhdfq7ftcham4e3v3p90gqcchvam8s37vx77',
+  'e344c796b2417e76b42d0fe7f561a705d98549394a997a823a37df22'
+);
+
+INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
+VALUES (
+  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  'Ponto de Coleta FT UnB',
+  'Asa Norte, Brasília',
+  -15.762412,
+  -47.872549,
+  10.0,
+  'active'
+);
+
+INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
+VALUES (
+  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  'Ponto de Coleta BCE UnB',
+  'Asa Norte, Brasília',
+  -15.761322,
+  -47.867377,
+  5.0,
+  'active'
+);
+
+INSERT INTO stations (name, location_name, latitude, longitude)
+VALUES (
+  'Central de Reciclagem',
+  'Lago Norte, Brasília',
+  -15.714127,
+  -47.874617
+);
+
+INSERT INTO stations (name, location_name, latitude, longitude)
+VALUES (
+  'Complexo Integrado de Reciclagem',
+  'Zona Industrial, Brasília',
+  -15.793054,
+  -47.967047
 );
 
 INSERT INTO trucks (license_plate, status)
-VALUES ('GRN-0001', 'available');
+VALUES (
+  'PBX-6480',
+  'available'
+);
 
-INSERT INTO stations (name, location_name)
-VALUES ('Estação Central de Reciclagem', 'Zona Industrial, Brasília');
+INSERT INTO trucks (license_plate, status)
+VALUES (
+  'XYZ-9876',
+  'available'
+);
+
+INSERT INTO trucks (license_plate, status)
+VALUES (
+  'ABC-1234',
+  'available'
+);

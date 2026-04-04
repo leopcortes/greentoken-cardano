@@ -7,6 +7,7 @@ export interface Station {
   latitude: number | null
   longitude: number | null
   created_at: Date
+  bottle_count: number
 }
 
 function parseRow(row: any): Station {
@@ -14,6 +15,7 @@ function parseRow(row: any): Station {
     ...row,
     latitude: row.latitude != null ? parseFloat(row.latitude) : null,
     longitude: row.longitude != null ? parseFloat(row.longitude) : null,
+    bottle_count: parseInt(row.bottle_count) || 0,
   }
 }
 
@@ -22,7 +24,12 @@ export function parseRows(rows: any[]): Station[] {
 }
 
 export async function list(): Promise<Station[]> {
-  const { rows } = await pool.query('SELECT * FROM stations ORDER BY name')
+  const { rows } = await pool.query(`
+    SELECT s.*,
+           (SELECT COUNT(*) FROM bottles b WHERE b.station_id = s.id)::int AS bottle_count
+    FROM stations s
+    ORDER BY s.name
+  `)
   return rows.map(parseRow)
 }
 
