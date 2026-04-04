@@ -13,23 +13,38 @@ export interface Container {
   last_updated: Date
 }
 
+// node-pg retorna NUMERIC como string; converte para number
+function parseRow(row: any): Container {
+  return {
+    ...row,
+    capacity_liters: parseFloat(row.capacity_liters) || 0,
+    current_volume_liters: parseFloat(row.current_volume_liters) || 0,
+    latitude: row.latitude != null ? parseFloat(row.latitude) : null,
+    longitude: row.longitude != null ? parseFloat(row.longitude) : null,
+  }
+}
+
+export function parseRows(rows: any[]): Container[] {
+  return rows.map(parseRow)
+}
+
 export async function findById(id: string): Promise<Container | null> {
   const { rows } = await pool.query('SELECT * FROM containers WHERE id = $1', [id])
-  return rows[0] ?? null
+  return rows[0] ? parseRow(rows[0]) : null
 }
 
 export async function findByStatus(status: string): Promise<Container[]> {
   const { rows } = await pool.query(
     'SELECT * FROM containers WHERE status = $1 ORDER BY last_updated', [status],
   )
-  return rows
+  return rows.map(parseRow)
 }
 
 export async function findByOwnerId(ownerId: string): Promise<Container[]> {
   const { rows } = await pool.query(
     'SELECT * FROM containers WHERE owner_id = $1 ORDER BY name', [ownerId],
   )
-  return rows
+  return rows.map(parseRow)
 }
 
 export async function create(data: {
@@ -46,7 +61,7 @@ export async function create(data: {
     [data.owner_id, data.name, data.location_name ?? null,
      data.latitude ?? null, data.longitude ?? null, data.capacity_liters],
   )
-  return rows[0]
+  return parseRow(rows[0])
 }
 
 export async function updateVolume(id: string, volumeLiters: number): Promise<Container> {
@@ -56,7 +71,7 @@ export async function updateVolume(id: string, volumeLiters: number): Promise<Co
      WHERE id = $1 RETURNING *`,
     [id, volumeLiters],
   )
-  return rows[0]
+  return parseRow(rows[0])
 }
 
 export async function updateStatus(id: string, status: string): Promise<void> {

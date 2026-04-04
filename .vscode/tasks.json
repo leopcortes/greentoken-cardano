@@ -2,74 +2,27 @@
     "version": "2.0.0",
     "tasks": [
       {
-        "label": "Cabal Update",
-        "command": "cabal",
-        "args": ["update"],
-        "options": {
-          "cwd": "${workspaceFolder}"
-        },
-        "presentation": {
-          "panel": "shared",
-          "group": "cabal"
-        }
-      },
-      {
         "label": "Cabal Build",
         "command": "cabal",
         "args": ["build"],
         "options": {
           "cwd": "${workspaceFolder}"
         },
-        "runOptions": {
-          "runOn": "folderOpen"
-        },
-        "presentation": {
-          "panel": "shared",
-          "group": "cabal"
-        },
-        "dependsOn": ["Cabal Update"]
-      },
-      {
-        "label": "Compile Contract",
-        "command": "cabal",
-        "args": ["run", "plutus-starter-kit", "--", "assets/alwaysTrueV2.plutus"],
-        "presentation": {
-          "panel": "shared",
-          "group": "cabal"
-        },
-        "dependsOn": ["Cabal Build"]
-      },
-      {
-        "label": "Check Contract Balance",
-        "command": ".vscode/contract-balance.sh",
         "presentation": {
           "panel": "shared",
           "group": "cabal"
         }
       },
       {
-        "label": "Check Dev Wallet Balance",
-        "command": ".vscode/wallet1-balance.sh",
+        "label": "Backend Dev",
+        "command": "npm",
+        "args": ["run", "dev"],
+        "options": {
+          "cwd": "${workspaceFolder}/backend"
+        },
         "presentation": {
-          "panel": "shared",
-          "group": "cabal"
-        }
-      },
-      {
-        "label": "New Dev Wallet",
-        "command": ".vscode/new-dev-wallet.sh",
-        "presentation": {
-          "panel": "shared",
-          "group": "cabal"
-        }
-      },
-      {
-        "label": "Download Protocol Paramters",
-        "command": ".vscode/download-params.sh",
-        "presentation": {
-          "panel": "shared",
-          "group": "cabal",
-          "revealProblems": "never"
+          "panel": "dedicated",
+          "group": "backend"
         }
       }
     ]

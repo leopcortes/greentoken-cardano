@@ -4,6 +4,7 @@ export interface Reward {
   id: string
   user_id: string
   bottle_id: string
+  bottle_name: string
   tx_id: string | null
   stage: string
   greentoken_amount: number
@@ -11,10 +12,10 @@ export interface Reward {
   sent_at: Date
 }
 
-// Recompensas por estagio — valores iguais aos dos bash scripts (on-chain)
+// Recompensas por estagio - valores iguais aos dos bash scripts (on-chain)
 export const REWARDS_BY_STAGE: Record<string, number> = {
   inserted: 10,
-  compacted: 10,
+  compacted: 5,
   collected: 5,
   atstation: 10,
   shredded: 20,
@@ -22,7 +23,20 @@ export const REWARDS_BY_STAGE: Record<string, number> = {
 
 export async function findByUserId(userId: string): Promise<Reward[]> {
   const { rows } = await pool.query(
-    'SELECT * FROM rewards WHERE user_id = $1 ORDER BY sent_at DESC', [userId],
+    `SELECT
+      r.id,
+      r.user_id,
+      r.bottle_id,
+      b.bottle_id_text AS bottle_name,
+      r.tx_id,
+      r.stage,
+      r.greentoken_amount,
+      r.tx_hash,
+      r.sent_at
+    FROM rewards r
+    INNER JOIN bottles b ON b.id = r.bottle_id
+    WHERE r.user_id = $1
+    ORDER BY r.sent_at DESC`, [userId],
   )
   return rows
 }

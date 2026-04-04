@@ -20,15 +20,15 @@ CREATE TABLE containers (
   location_name         VARCHAR(255),
   latitude              FLOAT,
   longitude             FLOAT,
-  capacity_liters       INT          NOT NULL,
-  current_volume_liters INT          NOT NULL DEFAULT 0,
+  capacity_liters       NUMERIC(10,1) NOT NULL,
+  current_volume_liters NUMERIC(10,1) NOT NULL DEFAULT 0,
   status                VARCHAR(20)  NOT NULL DEFAULT 'active'
-                          CHECK (status IN ('active', 'full', 'in_route', 'maintenance')),
+                          CHECK (status IN ('active', 'full', 'compacted', 'in_route', 'maintenance')),
   last_updated          TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
 
--- Caminhoes 
+-- Caminhoes
 CREATE TABLE trucks (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   license_plate VARCHAR(20) UNIQUE NOT NULL,
@@ -37,11 +37,22 @@ CREATE TABLE trucks (
   last_updated  TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+-- Estacoes de tratamento (destino final das rotas)
+CREATE TABLE stations (
+  id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          VARCHAR(255) NOT NULL,
+  location_name VARCHAR(255),
+  latitude      FLOAT,
+  longitude     FLOAT,
+  created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+);
 
 -- Cada rota representa uma saida de um caminhao
+-- station_id = estacao de destino onde as garrafas serao entregues
 CREATE TABLE routes (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   truck_id     UUID        NOT NULL REFERENCES trucks(id) ON DELETE RESTRICT,
+  station_id   UUID        REFERENCES stations(id) ON DELETE RESTRICT,
   status       VARCHAR(20) NOT NULL DEFAULT 'planned'
                  CHECK (status IN ('planned', 'in_progress', 'completed')),
   created_at   TIMESTAMP   NOT NULL DEFAULT NOW(),
@@ -63,12 +74,18 @@ CREATE TABLE route_stops (
 -- bottles
 -- espelha os estagios do contrato plutus on-chain.
 -- utxo_hash + utxo_index identificam o UTxO na blockchain.
+-- container_id: container onde a garrafa esta (inserted/compacted)
+-- route_id: rota/caminhao transportando a garrafa (collected)
+-- station_id: estacao de tratamento onde a garrafa esta (atstation/shredded)
 CREATE TABLE bottles (
   id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        UUID         NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   container_id   UUID         REFERENCES containers(id) ON DELETE SET NULL,
+  route_id       UUID         REFERENCES routes(id) ON DELETE SET NULL,
+  station_id     UUID         REFERENCES stations(id) ON DELETE SET NULL,
   bottle_id_text VARCHAR(255) NOT NULL,
   bottle_id_hex  VARCHAR(255) NOT NULL,
+  volume_ml      NUMERIC(10,1) NOT NULL DEFAULT 500,
   current_stage  VARCHAR(20)  NOT NULL DEFAULT 'inserted'
                    CHECK (current_stage IN ('inserted','compacted','collected','atstation','shredded')),
   utxo_hash      VARCHAR(255),
@@ -98,7 +115,7 @@ CREATE TABLE blockchain_txs (
 );
 
 -- Greentokens enviados ao reciclador por estagio concluido.
--- inserted=10, compacted=10, collected=5, atstation=10, shredded=20 (total=55)
+-- inserted=10, compacted=5, collected=5, atstation=10, shredded=20 (total=50)
 CREATE TABLE rewards (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -134,6 +151,12 @@ CREATE INDEX idx_blockchain_txs_bottle ON blockchain_txs(bottle_id);
 -- Buscar recompensas por usuario
 CREATE INDEX idx_rewards_user_id       ON rewards(user_id);
 
+-- Buscar garrafas por rota (coleta em andamento)
+CREATE INDEX idx_bottles_route_id      ON bottles(route_id);
+
+-- Buscar garrafas por estacao de tratamento
+CREATE INDEX idx_bottles_station_id    ON bottles(station_id);
+
 -- Buscar containers por status (detectar containers 'full')
 CREATE INDEX idx_containers_status     ON containers(status);
 
@@ -154,3 +177,6 @@ VALUES (
 
 INSERT INTO trucks (license_plate, status)
 VALUES ('GRN-0001', 'available');
+
+INSERT INTO stations (name, location_name)
+VALUES ('Estação Central de Reciclagem', 'Zona Industrial, Brasília');

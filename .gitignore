@@ -13,7 +13,7 @@ node_modules/
 .env
 !.env.example
 
-# Chaves privadas — NUNCA commitar
+# Chaves privadas - NUNCA commitar
 *.skey
 *.hwsfile
 *.priv
@@ -35,11 +35,15 @@ pp.json
 logs/
 *.error
 
-# Demeter (cache de ambiente cloud — não mais utilizado)
+# Demeter (cache de ambiente cloud - não mais utilizado)
 demeter/
 workspace/
 node-ipc/
 
+# Arquivos de sessão SQL (gerados por IDEs)
+*.session.sql
+
 # VSCode
 .vscode/
 .history/
+.claude/

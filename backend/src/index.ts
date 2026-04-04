@@ -5,6 +5,9 @@ import { startConfirmationWorker } from './workers/confirmation.worker'
 import { router as usersRouter } from './routes/users.routes'
 import { router as bottlesRouter } from './routes/bottles.routes'
 import { router as containersRouter } from './routes/containers.routes'
+import { router as trucksRouter } from './routes/trucks.routes'
+import { router as routesRouter } from './routes/routes.routes'
+import { router as stationsRouter } from './routes/stations.routes'
 
 const app = express()
 
@@ -14,6 +17,9 @@ app.use(express.json())
 app.use('/users', usersRouter)
 app.use('/bottles', bottlesRouter)
 app.use('/containers', containersRouter)
+app.use('/trucks', trucksRouter)
+app.use('/routes', routesRouter)
+app.use('/stations', stationsRouter)
 
 // Health check
 app.get('/health', async (_req, res) => {

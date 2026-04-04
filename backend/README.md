@@ -1,4 +1,4 @@
-# Backend — Greentoken Cardano
+# Backend - Greentoken Cardano
 
 Serviço off-chain responsável por gerenciar o banco de dados, a comunicação com a blockchain Cardano e a lógica de recompensas em Greentoken.
 
@@ -21,7 +21,7 @@ backend/
 
 ### Visão Geral
 
-O schema foi projetado para espelhar o ciclo de vida completo de uma garrafa no sistema — desde o depósito no container até a trituragem final — integrando os dados off-chain com o estado on-chain do contrato Plutus.
+O schema foi projetado para espelhar o ciclo de vida completo de uma garrafa no sistema - desde o depósito no container até a trituragem final - integrando os dados off-chain com o estado on-chain do contrato Plutus.
 
 ---
 
@@ -29,8 +29,8 @@ O schema foi projetado para espelhar o ciclo de vida completo de uma garrafa no 
 
 Armazena os dois tipos de usuário do sistema. O campo `role` diferencia:
 
-- `recycler` — usuário que deposita garrafas e recebe Greentoken como recompensa
-- `owner` — dono dos pontos de reciclagem, com acesso aos containers, caminhões e rotas
+- `recycler` - usuário que deposita garrafas e recebe Greentoken como recompensa
+- `owner` - dono dos pontos de reciclagem, com acesso aos containers, caminhões e rotas
 
 A estrutura suporta múltiplos owners no futuro, embora o sistema atual opere com um único owner.
 
@@ -54,10 +54,10 @@ Representa os pontos físicos de coleta de garrafas. Cada container pertence a u
 
 Os campos `current_volume_liters` e `capacity_liters` permitem calcular a porcentagem de preenchimento. O campo `status` controla o ciclo de vida do container:
 
-- `active` — em operação normal, recebendo garrafas
-- `full` — capacidade atingida, aciona a lógica de rota do caminhão
-- `in_route` — já adicionado à rota de coleta de um caminhão
-- `maintenance` — fora de operação temporariamente
+- `active` - em operação normal, recebendo garrafas
+- `full` - capacidade atingida, aciona a lógica de rota do caminhão
+- `in_route` - já adicionado à rota de coleta de um caminhão
+- `maintenance` - fora de operação temporariamente
 
 ```sql
 CREATE TABLE containers (
@@ -147,7 +147,7 @@ CREATE TABLE bottles (
 
 ### Tabela `blockchain_txs`
 
-Log de auditoria de todas as transações submetidas à blockchain. Os campos `datum_json` e `redeemer_json` preservam exatamente o que foi enviado ao contrato Plutus, permitindo rastreabilidade completa — fundamental para a análise na tese.
+Log de auditoria de todas as transações submetidas à blockchain. Os campos `datum_json` e `redeemer_json` preservam exatamente o que foi enviado ao contrato Plutus, permitindo rastreabilidade completa - fundamental para a análise na tese.
 
 ```sql
 CREATE TABLE blockchain_txs (
