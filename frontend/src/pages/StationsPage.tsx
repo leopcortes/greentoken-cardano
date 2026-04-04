@@ -12,7 +12,7 @@ import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { useSortable } from '@/hooks/useSortable';
 import {
-  getStations, createStation, getStationBottles, shredBottle,
+  getStations, createStation, getStationBottles, shredStation,
   type Station, type Bottle,
 } from '@/services/api';
 import { STAGE_LABELS, t } from '@/lib/labels';
@@ -43,7 +43,7 @@ export function StationsPage() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [stationBottles, setStationBottles] = useState<Bottle[]>([]);
   const [bottlesLoading, setBottlesLoading] = useState(false);
-  const [shreddingId, setShreddingId] = useState<string | null>(null);
+  const [shredding, setShredding] = useState(false);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortable<Station>(stations);
 
@@ -129,21 +129,19 @@ export function StationsPage() {
     }
   };
 
-  const handleShred = async (bottle: Bottle) => {
-    setShreddingId(bottle.id);
-    const toastId = toast.loading(`Triturando "${bottle.bottle_id_text}"... Aguardando transação na blockchain.`);
+  const handleShredAll = async () => {
+    if (!selectedStation) return;
+    setShredding(true);
+    const toastId = toast.loading(`Triturando garrafas na estação "${selectedStation.name}"... Aguardando transações na blockchain.`);
     try {
-      await shredBottle(bottle.id);
-      toast.success(`"${bottle.bottle_id_text}" triturada com sucesso.`, { id: toastId });
-      // Refresh bottles list
-      if (selectedStation) {
-        const bottles = await getStationBottles(selectedStation.id);
-        setStationBottles(bottles);
-      }
+      const result = await shredStation(selectedStation.id);
+      toast.success(result.message, { id: toastId });
+      const bottles = await getStationBottles(selectedStation.id);
+      setStationBottles(bottles);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao triturar garrafa', { id: toastId });
+      toast.error(err instanceof Error ? err.message : 'Erro ao triturar garrafas', { id: toastId });
     } finally {
-      setShreddingId(null);
+      setShredding(false);
     }
   };
 
@@ -326,58 +324,52 @@ export function StationsPage() {
               ) : stationBottles.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma garrafa nesta estação</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Garrafa</TableHead>
-                      <TableHead>Volume</TableHead>
-                      <TableHead>Estágio</TableHead>
-                      <TableHead>Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stationBottles.map(bottle => (
-                      <TableRow key={bottle.id}>
-                        <TableCell>
-                          <div className="text-sm font-medium">{bottle.bottle_id_text}</div>
-                          <div className="flex items-center gap-0.5 mt-0.5">
-                            <span className="font-mono text-[11px] text-muted-foreground">{bottle.id}</span>
-                            <CopyButton className="ml-1" value={bottle.id} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {Number(bottle.volume_ml).toFixed(1)}ml
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={STAGE_COLORS[bottle.current_stage] || ''}>
-                            {t(STAGE_LABELS, bottle.current_stage)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {bottle.current_stage === 'atstation' ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className={`h-7 text-xs px-2 border-0 ${
-                                shreddingId === bottle.id
-                                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
-                                  : 'bg-red-50 text-red-700 hover:bg-red-100'
-                              }`}
-                              disabled={shreddingId === bottle.id}
-                              onClick={() => handleShred(bottle)}
-                            >
-                              {shreddingId === bottle.id ? 'Processando...' : 'Triturar'}
-                            </Button>
-                          ) : (
-                            <span className="inline-flex items-center rounded-md px-2 py-1 text-xs bg-green-100 text-green-800">
-                              triturada
-                            </span>
-                          )}
-                        </TableCell>
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Garrafa</TableHead>
+                        <TableHead>Volume</TableHead>
+                        <TableHead>Estágio</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {stationBottles.map(bottle => (
+                        <TableRow key={bottle.id}>
+                          <TableCell>
+                            <div className="text-sm font-medium">{bottle.bottle_id_text}</div>
+                            <div className="flex items-center gap-0.5 mt-0.5">
+                              <span className="font-mono text-[11px] text-muted-foreground">{bottle.id}</span>
+                              <CopyButton className="ml-1" value={bottle.id} />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {Number(bottle.volume_ml).toFixed(1)}ml
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={STAGE_COLORS[bottle.current_stage] || ''}>
+                              {t(STAGE_LABELS, bottle.current_stage)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {atstationCount > 0 && (
+                    <div className="pt-3 border-t">
+                      <Button
+                        className="w-full"
+                        disabled={shredding}
+                        onClick={handleShredAll}
+                      >
+                        {shredding
+                          ? 'Triturando...'
+                          : `Triturar Todas (${atstationCount} garrafa${atstationCount > 1 ? 's' : ''})`}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

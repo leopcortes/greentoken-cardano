@@ -177,6 +177,16 @@ export async function shred(id: string): Promise<void> {
   )
 }
 
+// Batch: tritura todas as garrafas atstation de uma estacao
+export async function shredByStation(stationId: string): Promise<number> {
+  const { rowCount } = await pool.query(
+    `UPDATE bottles SET current_stage = 'shredded', shredded_at = NOW()
+     WHERE station_id = $1 AND current_stage = 'atstation'`,
+    [stationId],
+  )
+  return rowCount ?? 0
+}
+
 export async function updateUtxo(id: string, utxoHash: string, utxoIndex: number): Promise<void> {
   await pool.query(
     'UPDATE bottles SET utxo_hash = $2, utxo_index = $3 WHERE id = $1',

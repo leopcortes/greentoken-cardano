@@ -12,6 +12,7 @@ import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSortable } from '@/hooks/useSortable';
+import { SquareArrowRightEnter, Package, Truck, Factory, Recycle } from 'lucide-react';
 import {
   getBottles, getUsers, getContainers, getNextBottleNumber,
   createBottle,
@@ -26,6 +27,14 @@ const STAGE_COLORS: Record<string, string> = {
   collected: 'bg-orange-100 text-orange-800',
   atstation: 'bg-purple-100 text-purple-800',
   shredded: 'bg-green-100 text-green-800',
+};
+
+const STAGE_ICONS: Record<string, React.ElementType> = {
+  inserted: SquareArrowRightEnter,
+  compacted: Package,
+  collected: Truck,
+  atstation: Factory,
+  shredded: Recycle,
 };
 
 export function BottlesPage() {
@@ -207,7 +216,7 @@ export function BottlesPage() {
                   </Label>
                   <SearchableSelect
                     options={containerOptions
-                      .filter(c => c.current_volume_liters < c.capacity_liters)
+                      .filter(c => c.status === 'active' && c.current_volume_liters < c.capacity_liters)
                       .map(c => ({
                         value: c.id,
                         label: c.name,
@@ -329,9 +338,19 @@ export function BottlesPage() {
                       {Number(bottle.volume_ml).toFixed(1)}ml
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={STAGE_COLORS[bottle.current_stage] || ''}>
-                        {t(STAGE_LABELS, bottle.current_stage)}
-                      </Badge>
+                      {(() => {
+                        const StageIcon = STAGE_ICONS[bottle.current_stage] || SquareArrowRightEnter;
+
+                        return (
+                          <Badge
+                            variant="secondary"
+                            className={STAGE_COLORS[bottle.current_stage] || ''}
+                          >
+                            <StageIcon size={12} strokeWidth={3} className="mr-1 mb-[0.25px]" />
+                            {t(STAGE_LABELS, bottle.current_stage)}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {bottle.utxo_hash ? (

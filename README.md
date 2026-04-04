@@ -40,11 +40,11 @@ Tanto os **scripts bash** quanto a **API REST** gravam no banco de dados e subme
 | Estágio | Greentoken |
 |---------|-----------|
 | inserted | 10 |
-| compacted | 10 |
+| compacted | 5 |
 | collected | 5 |
 | atstation | 10 |
 | shredded | 20 |
-| **Total por garrafa** | **55** |
+| **Total por garrafa** | **50** |
 
 ---
 
@@ -241,16 +241,22 @@ O Vite faz proxy de `/api/*` para `http://localhost:3000` (backend). O backend p
 - [ ] Deploy em produção (mainnet)
 
 Fluxo deve ser
-1. É criada (inserida) uma garrafa associada a um container e usuário (garraga inserted)
-2. Após n garrafas serem adicionadas a um container ele vai enchendo, ao ter 90% da capacidade ocupada ele pode ser coletado por um caminhão em uma rota (garrafa inserted -> colected)
-3. Após a coleta as garrafas param de ser associadas ao container e ficam associadas ao caminhão (o container fica com ocupação vazia) (garrafa colected)
-4. Após o caminhão terminar as coletas de sua rota ele leva as garrafas a uma estação de tratamento (ponto final da rota). Ao chegar na estação de tratamento as garrafas param de ser associadas ao caminhão e passam a ser associadas a estação de tratamento (garrafa colected -> atstation)
-5. Na estação de tratamento existem n garrafas que podem ser trituradas (atstation -> shreded)
+1. Usuário é criado
+2. Container é criado
+3. É criada (inserida) uma garrafa associada a um container e usuário (garraga inserted)
+4. Após n garrafas serem adicionadas a um container ele vai enchendo, ao ter 90% da capacidade ocupada ele pode ser compactado (garrafa inserted -> compacted)
+5. Após todas as garrafas do container terem sido compactadas ele pode ser coletado por um caminhão em uma rota
+6. Caminhão é criado, estação de tratamento é criada, rota pode ser criada com n containeres ocupados, uma caminhão e uma estação
+7. Após a coleta as garrafas de um container, elas param de ser associadas ao container e ficam associadas ao caminhão (o container fica com ocupação vazia) (garrafa compacted -> colected)
+8. Após o caminhão terminar as coletas de sua rota ele leva as garrafas a uma estação de tratamento (ponto final da rota). Ao chegar na estação de tratamento as garrafas param de ser associadas ao caminhão e passam a ser associadas a estação de tratamento (garrafa colected -> atstation)
+9. Na estação de tratamento existem n garrafas que podem ser trituradas de uma vez (atstation -> shreded)
 
-Obs:
-- [ ] Garrafas que estiverem em um container não devem ter as ações de passar de estágio manualmente
-- [ ] Ação no container para quando estiver pelo menos 90% cheio ele compactar
-- [ ] Após todas as garrafas do container estarem compactadas, ao coletar um container, todas as garrafas dele devem passar para coletadas e o volume do container deve resetar
-- [ ] após finalizar as coletas de uma rota, opção para "entregar" as garrafas do container em uma estação (isso avança as garrafas para o estágio atstation)
-- [ ] Nova aba de estações de tratamento para ter opção de "triturar" as garrfas e passar para o próximo estágio
-- [ ] Nova tabela de estações de tratamento no banco de dados
+a cada estágio da garrafa é dada a recompensa em greentoken ao usuário que criou (inseriu) ela
+
+TODO:
+1. Ao criar uma garrafa, deve-se esperar um tempo para as operações da blockchain serem feitar antes de poder criar outra garrafa, se não esperar é lançado um erro, implemente um bloqueio no botão de criação de garrafa até que a blockchain estaja pronta para criar outra garrafa.
+2. Na tabela de garrafas em BottllesPage.tsx, remova as colunas "Container" e "Estação" e crie uma nova coluna do tipo "Localização" ou algo do tipo onde se a garrafa estiver em um container mostra "Container - Nome do Container" se estiver num caminhão mostra "Caminhão - Placa do caminhão", se estiver em uma estção mostra "Estação - Nome da Estação"
+3. Ao compactar um container em ContainersPage.tsx o botão de ação ainda permanece como "compactar", altere o status do container para compactado e bloqueie o botão para não compactar novamente
+4. Em RoutesPage.tsx, altere a dialog de criação de rota para ao invés de mostrar containers cheios mostrar apenas os containers que já foram compactados (quando um container está com > 90% da capacidade ocupada ele pode ser compactado para então poder ser coletado)
+5. Percebi que operações em batch não estão gerando as recompensas corretamente, por exemplo para duas garrafas, uma criada pelo usuário 1 e outra pelo usuário 2, as recompensas pela inserção foram dadas corretamente, mas como elas estão no mesmo container, as operações de compactar, coletar, na estação e triturar não estão dando recompensas para o usuário 2, apenas para o usuário 1
+6. Atualize README.md e SETUP-LOCAL (se necessário) para incluir as alterações feitas recementemente, o estado atual do projeto e explicar o fluxo citado anteriormente

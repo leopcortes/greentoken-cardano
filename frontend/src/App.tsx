@@ -10,7 +10,7 @@ import { StationsPage } from '@/pages/StationsPage';
 function App() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-6 py-4">
+      <header className="border-b bg-card px-6 py-4 flex justify-between">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src="/unb_logo.png" className="object-cover" />
@@ -23,23 +23,28 @@ function App() {
             </p>
           </div>
         </div>
+        <div>
+          <h1 className="text-base font-normal tracking-tight text-right">Projeto Final de Engenharia de Computação</h1>
+          <p className="text-xs text-muted-foreground text-right">Ana Paula Oliveira da Nóbrega Costa</p>
+          <p className="text-xs text-muted-foreground text-right">Leonardo Pereira Côrtes</p>
+        </div>
       </header>
 
       <main className="mx-auto 2xl:max-w-[75%] lg:max-w-[95%] p-6">
         <Tabs defaultValue="bottles">
           <TabsList className='bg-gray-100 text-gray-800'>
-            <TabsTrigger value="bottles">Garrafas</TabsTrigger>
-            <TabsTrigger value="users">Usuários</TabsTrigger>
-            <TabsTrigger value="containers">Containers</TabsTrigger>
-            <TabsTrigger value="routes">Rotas</TabsTrigger>
-            <TabsTrigger value="stations">Estações</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="users">Usuários</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="bottles">Garrafas</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="containers">Containers</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="routes">Rotas</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="stations">Estações</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="bottles" className="mt-4">
-            <BottlesPage />
-          </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UsersPage />
+          </TabsContent>
+          <TabsContent value="bottles" className="mt-4">
+            <BottlesPage />
           </TabsContent>
           <TabsContent value="containers" className="mt-4">
             <ContainersPage />

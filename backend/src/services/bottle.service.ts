@@ -316,6 +316,59 @@ export async function shredBottle(bottleId: string) {
 }
 
 /**
+ * Tritura todas as garrafas atstation de uma estacao de tratamento.
+ * Submete txs on-chain para cada garrafa (com tolerancia a falhas),
+ * depois atualiza o banco em batch.
+ */
+export async function shredStation(stationId: string) {
+  const sId = validateUUID(stationId)
+
+  const station = await stationsDb.findById(sId)
+  if (!station) throw new Error(`Estacao nao encontrada: ${sId}`)
+
+  const bottles = await bottlesDb.findByStationId(sId)
+  const atstationBottles = bottles.filter(b => b.current_stage === 'atstation')
+  if (atstationBottles.length === 0) {
+    throw new Error('Nenhuma garrafa atstation encontrada nesta estacao')
+  }
+
+  // Submete tx de avanco para cada garrafa (tolerante a falhas)
+  const results: { bottleId: string; txHash: string }[] = []
+  for (const bottle of atstationBottles) {
+    if (!bottle.utxo_hash || bottle.utxo_index === null) continue
+
+    const user = await usersDb.findById(bottle.user_id)
+    if (!user) continue
+
+    try {
+      const txHash = await cardano.advanceStage({
+        bottleId: bottle.bottle_id_text,
+        targetStage: 'shredded',
+        userAddr: user.wallet_address,
+        utxoHash: bottle.utxo_hash,
+        utxoIndex: bottle.utxo_index,
+      })
+
+      await txsDb.create({
+        bottle_id: bottle.id,
+        stage: 'shredded',
+        tx_hash: txHash,
+      })
+
+      await bottlesDb.clearUtxo(bottle.id)
+      results.push({ bottleId: bottle.id, txHash })
+    } catch (err) {
+      console.error(`[shred] Erro ao avancar garrafa ${bottle.id}:`, err)
+    }
+  }
+
+  // Batch: atualiza todas as garrafas no banco
+  const count = await bottlesDb.shredByStation(sId)
+
+  return { stationId: sId, shredded: count, txs: results }
+}
+
+/**
  * Consulta o historico completo de uma garrafa (txs + rewards).
  */
 export async function getHistory(bottleId: string) {

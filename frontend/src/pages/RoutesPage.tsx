@@ -14,10 +14,11 @@ import { SortableHeader } from '@/components/ui/sortable-header';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSortable } from '@/hooks/useSortable';
 import {
-  getRoutes, createRoute, getRoute, collectStop,
+  getRoutes, createRoute, getRoute, collectStop, deliverRoute,
   getTrucks, createTruck,
-  getContainers,
-  type Route, type RouteStop, type Truck, type Container,
+  getContainers, getBottles,
+  getStations,
+  type Route, type RouteStop, type Truck, type Container, type Station,
 } from '@/services/api';
 import { ROUTE_STATUS_LABELS, TRUCK_STATUS_LABELS, STOP_STATUS_LABELS, t } from '@/lib/labels';
 
@@ -44,13 +45,17 @@ export function RoutesPage() {
   const [fullContainers, setFullContainers] = useState<Container[]>([]);
   const [selectedTruck, setSelectedTruck] = useState('');
   const [selectedContainers, setSelectedContainers] = useState<string[]>([]);
+  const [stationOptions, setStationOptions] = useState<Station[]>([]);
+  const [selectedStation, setSelectedStation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [delivering, setDelivering] = useState(false);
 
   const [truckDialogOpen, setTruckDialogOpen] = useState(false);
   const [formPlate, setFormPlate] = useState('');
   const [plateError, setPlateError] = useState('');
 
   const [detailRoute, setDetailRoute] = useState<(Route & { stops: RouteStop[] }) | null>(null);
+  const [routeHasCollected, setRouteHasCollected] = useState(false);
 
   const truckSort = useSortable<Truck>(trucks);
   const routeSort = useSortable<Route>(routes);
@@ -73,14 +78,17 @@ export function RoutesPage() {
 
   const openCreateRoute = async () => {
     try {
-      const [trucksData, containersData] = await Promise.all([
+      const [trucksData, containersData, stationsData] = await Promise.all([
         getTrucks(),
         getContainers({ status: 'full' }),
+        getStations(),
       ]);
       setAvailableTrucks(trucksData.filter(t => t.status === 'available'));
       setFullContainers(containersData);
+      setStationOptions(stationsData);
       setSelectedTruck('');
       setSelectedContainers([]);
+      setSelectedStation('');
       setRouteDialogOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados para rota');
@@ -95,10 +103,14 @@ export function RoutesPage() {
 
   const handleCreateRoute = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTruck || selectedContainers.length === 0) return;
+    if (!selectedTruck || selectedContainers.length === 0 || !selectedStation) return;
     setSubmitting(true);
     try {
-      await createRoute({ truck_id: selectedTruck, container_ids: selectedContainers });
+      await createRoute({
+        truck_id: selectedTruck,
+        container_ids: selectedContainers,
+        station_id: selectedStation,
+      });
       toast.success('Rota de coleta criada com sucesso.');
       setRouteDialogOpen(false);
       fetchData();
@@ -136,24 +148,62 @@ export function RoutesPage() {
 
   const handleViewRoute = async (routeId: string) => {
     try {
-      const data = await getRoute(routeId);
+      const [data, bottles] = await Promise.all([
+        getRoute(routeId),
+        getBottles({ route_id: routeId }),
+      ]);
       setDetailRoute(data);
+      setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar rota');
     }
   };
 
   const handleCollectStop = async (stopId: string) => {
+    const toastId = toast.loading('Coletando parada... Movendo garrafas para o estágio coletadas. Aguardando transações na blockchain.');
     try {
-      await collectStop(stopId);
-      toast.success('Parada coletada com sucesso.');
+      const result = await collectStop(stopId);
+      toast.success(result.message, { id: toastId });
       if (detailRoute) {
-        const updated = await getRoute(detailRoute.id);
+        const [updated, bottles] = await Promise.all([
+          getRoute(detailRoute.id),
+          getBottles({ route_id: detailRoute.id }),
+        ]);
         setDetailRoute(updated);
+        setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
       }
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada');
+      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada', { id: toastId });
+    }
+  };
+
+  const handleDeliver = async () => {
+    if (!detailRoute) return;
+
+    // Precisa de uma estação: usa a da rota ou pede seleção
+    const stationId = detailRoute.station_id;
+    if (!stationId) {
+      toast.error('Esta rota não tem estação de destino definida. Edite a rota ou selecione uma estação ao criar.');
+      return;
+    }
+
+    setDelivering(true);
+    const toastId = toast.loading('Entregando garrafas na estação... Aguardando transações na blockchain.');
+    try {
+      const result = await deliverRoute(detailRoute.id, stationId);
+      toast.success(result.message, { id: toastId });
+      const [updated, bottles] = await Promise.all([
+        getRoute(detailRoute.id),
+        getBottles({ route_id: detailRoute.id }),
+      ]);
+      setDetailRoute(updated);
+      setRouteHasCollected(bottles.some(b => b.current_stage === 'collected'));
+      fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao entregar garrafas', { id: toastId });
+    } finally {
+      setDelivering(false);
     }
   };
 
@@ -168,86 +218,6 @@ export function RoutesPage() {
   return (
     <div className="space-y-5">
       {error && <ErrorAlert message={error} onDismiss={() => setError('')} />}
-
-      {/* Trucks */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Caminhões</h2>
-          <Dialog open={truckDialogOpen} onOpenChange={setTruckDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">+ Novo Caminhão</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Cadastrar Caminhão</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateTruck} className="space-y-4">
-                <div className="space-y-2">
-                <Label htmlFor="truck-plate">
-                  Placa<span className="text-red-500">*</span>
-                </Label>
-
-                <Input
-                  id="truck-plate"
-                  value={formPlate}
-                  onChange={e => {
-                    setFormPlate(e.target.value);
-                    if (plateError) setPlateError('');
-                  }}
-                  placeholder="GRN-0002"
-                  className={plateError ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                />
-
-                {plateError && (
-                  <p className="text-sm font-medium text-red-500">{plateError}</p>
-                )}
-              </div>
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? 'Criando...' : 'Criar'}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <Card>
-          <CardContent className="px-4 py-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{TSH('Placa', 'license_plate')}</TableHead>
-                  <TableHead>{TSH('Status', 'status')}</TableHead>
-                  <TableHead>{TSH('Atualizado em', 'last_updated')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {truckSort.sorted.map(truck => (
-                  <TableRow key={truck.id}>
-                    <TableCell className="font-mono font-medium text-sm">{truck.license_plate}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={TRUCK_STATUS_COLORS[truck.status] || ''}>
-                        {t(TRUCK_STATUS_LABELS, truck.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(truck.last_updated).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!loading && trucks.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
-                      Nenhum caminhão cadastrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Separator />
 
       {/* Routes */}
       <div className="space-y-3">
@@ -347,7 +317,7 @@ export function RoutesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Containers cheios<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
+              <Label>Containers compactados<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
               {fullContainers.length > 0 ? (
                 <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2">
                   {fullContainers.map(c => (
@@ -369,9 +339,30 @@ export function RoutesPage() {
                 <p className="text-sm text-muted-foreground">Nenhum container cheio no momento</p>
               )}
             </div>
+            <div className="space-y-2">
+              <Label>Estação de destino<span className="text-red-500">*</span></Label>
+              {stationOptions.length > 0 ? (
+                <Select value={selectedStation} onValueChange={setSelectedStation}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma estação..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {stationOptions.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}{s.location_name ? ` - ${s.location_name}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma estação cadastrada</p>
+              )}
+            </div>
             <Button
               type="submit"
-              disabled={submitting || !selectedTruck || selectedContainers.length === 0}
+              disabled={submitting || !selectedTruck || selectedContainers.length === 0 || !selectedStation}
               className="w-full"
             >
               {submitting ? 'Criando...' : 'Criar Rota'}
@@ -430,10 +421,136 @@ export function RoutesPage() {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Botão de entregar na estação: aparece quando TODAS as paradas foram coletadas e estação definida */}
+              {(() => {
+                const allStopsCollected = detailRoute.stops?.length > 0 && detailRoute.stops.every(s => s.status === 'collected');
+                const hasAnyPending = detailRoute.stops?.some(s => s.status === 'pending');
+
+                if (allStopsCollected && routeHasCollected && detailRoute.station_id) {
+                  return (
+                    <div className="pt-3 border-t">
+                      <Button
+                        className="w-full"
+                        disabled={delivering}
+                        onClick={handleDeliver}
+                      >
+                        {delivering ? 'Entregando...' : 'Entregar Garrafas na Estação'}
+                      </Button>
+                    </div>
+                  );
+                }
+
+                if (routeHasCollected && hasAnyPending && detailRoute.station_id) {
+                  return (
+                    <p className="text-sm text-amber-600 pt-3 border-t text-center">
+                      Todas as paradas devem ser coletadas antes de entregar na estação.
+                    </p>
+                  );
+                }
+
+                if (detailRoute.status === 'completed' && !routeHasCollected && detailRoute.station_id) {
+                  return (
+                    <p className="text-sm text-muted-foreground pt-3 border-t text-center">
+                      Garrafas já entregues na estação.
+                    </p>
+                  );
+                }
+
+                if (detailRoute.status === 'completed' && !detailRoute.station_id) {
+                  return (
+                    <p className="text-sm text-muted-foreground pt-3 border-t">
+                      Rota concluída, mas sem estação de destino definida.
+                    </p>
+                  );
+                }
+
+                return null;
+              })()}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <Separator />
+
+      {/* Trucks */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Caminhões</h2>
+          <Dialog open={truckDialogOpen} onOpenChange={setTruckDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">+ Novo Caminhão</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cadastrar Caminhão</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateTruck} className="space-y-4">
+                <div className="space-y-2">
+                <Label htmlFor="truck-plate">
+                  Placa<span className="text-red-500">*</span>
+                </Label>
+
+                <Input
+                  id="truck-plate"
+                  value={formPlate}
+                  onChange={e => {
+                    setFormPlate(e.target.value);
+                    if (plateError) setPlateError('');
+                  }}
+                  placeholder="GRN-0002"
+                  className={plateError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                />
+
+                {plateError && (
+                  <p className="text-sm font-medium text-red-500">{plateError}</p>
+                )}
+              </div>
+                <Button type="submit" disabled={submitting} className="w-full">
+                  {submitting ? 'Criando...' : 'Criar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <Card>
+          <CardContent className="px-4 py-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{TSH('Placa', 'license_plate')}</TableHead>
+                  <TableHead>{TSH('Status', 'status')}</TableHead>
+                  <TableHead>{TSH('Atualizado em', 'last_updated')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {truckSort.sorted.map(truck => (
+                  <TableRow key={truck.id}>
+                    <TableCell className="font-mono font-medium text-sm">{truck.license_plate}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={TRUCK_STATUS_COLORS[truck.status] || ''}>
+                        {t(TRUCK_STATUS_LABELS, truck.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(truck.last_updated).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!loading && trucks.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                      Nenhum caminhão cadastrado
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

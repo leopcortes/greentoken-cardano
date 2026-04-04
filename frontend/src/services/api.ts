@@ -214,7 +214,7 @@ export const createStation = (data: {
 export const getStationBottles = (stationId: string) =>
   request<Bottle[]>(`/stations/${stationId}/bottles`);
 
-export const shredBottle = (bottleId: string) =>
-  request<{ message: string; bottle_id: string; tx_hash: string | null }>(
-    `/stations/bottles/${bottleId}/shred`, { method: 'POST' }
+export const shredStation = (stationId: string) =>
+  request<{ message: string; stationId: string; shredded: number }>(
+    `/stations/${stationId}/shred`, { method: 'POST' }
   );

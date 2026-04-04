@@ -50,17 +50,16 @@ router.get('/:id/bottles', async (req: Request, res: Response) => {
   }
 })
 
-// POST /stations/bottles/:bottleId/shred - tritura uma garrafa na estacao
-router.post('/bottles/:bottleId/shred', async (req: Request, res: Response) => {
+// POST /stations/:id/shred - tritura todas as garrafas atstation da estacao
+router.post('/:id/shred', async (req: Request, res: Response) => {
   try {
-    const result = await bottleService.shredBottle(req.params.bottleId as string)
+    const result = await bottleService.shredStation(req.params.id as string)
     res.json({
-      message: `Garrafa "${result.bottle.bottle_id_text}" triturada.`,
-      bottle_id: result.bottle.id,
-      tx_hash: result.txHash,
+      message: `${result.shredded} garrafa(s) triturada(s).`,
+      ...result,
     })
   } catch (err: any) {
-    if (err.message.includes('atstation') || err.message.includes('nao encontrada')) {
+    if (err.message.includes('Nenhuma') || err.message.includes('nao encontrada')) {
       return res.status(400).json({ error: err.message })
     }
     res.status(500).json({ error: err.message })
