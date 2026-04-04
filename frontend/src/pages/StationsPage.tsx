@@ -267,6 +267,7 @@ export function StationsPage() {
                 <TableHead>{SH('Nome', 'name')}</TableHead>
                 <TableHead>{SH('Local', 'location_name')}</TableHead>
                 <TableHead>Coordenadas</TableHead>
+                <TableHead>{SH('Garrafas', 'bottle_count')}</TableHead>
                 <TableHead>{SH('Criada em', 'created_at')}</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
@@ -285,6 +286,9 @@ export function StationsPage() {
                   <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
                     {formatCoord(station.latitude, station.longitude)}
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {station.bottle_count}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {new Date(station.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
@@ -297,7 +301,7 @@ export function StationsPage() {
               ))}
               {!loading && stations.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhuma estação encontrada
                   </TableCell>
                 </TableRow>

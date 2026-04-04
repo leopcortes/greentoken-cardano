@@ -108,10 +108,29 @@ export async function compactContainer(containerId: string) {
     throw new Error('Nenhuma garrafa inserted encontrada neste container')
   }
 
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
+  const readyBottles = bottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < bottles.length) {
+    const pending = bottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
+
+  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
+  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  if (operatorUtxos.length === 0) {
+    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+  }
+
   // Submete tx de avanco para cada garrafa
   const results: { bottleId: string; txHash: string }[] = []
-  for (const bottle of bottles) {
-    if (!bottle.utxo_hash || bottle.utxo_index === null) continue
+  for (let i = 0; i < readyBottles.length; i++) {
+    const bottle = readyBottles[i]
+    if (i >= operatorUtxos.length) {
+      console.warn(`[compact] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      break
+    }
 
     const user = await usersDb.findById(bottle.user_id)
     if (!user) continue
@@ -121,8 +140,9 @@ export async function compactContainer(containerId: string) {
         bottleId: bottle.bottle_id_text,
         targetStage: 'compacted',
         userAddr: user.wallet_address,
-        utxoHash: bottle.utxo_hash,
-        utxoIndex: bottle.utxo_index,
+        utxoHash: bottle.utxo_hash!,
+        utxoIndex: bottle.utxo_index!,
+        operatorTxIn: operatorUtxos[i].txIn,
       })
 
       await txsDb.create({
@@ -178,10 +198,29 @@ export async function collectContainer(containerId: string, routeId: string) {
     throw new Error('Nenhuma garrafa compactada encontrada neste container')
   }
 
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
+  const readyBottles = bottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < bottles.length) {
+    const pending = bottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
+
+  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
+  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  if (operatorUtxos.length === 0) {
+    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+  }
+
   // Submete tx de avanco para cada garrafa
   const results: { bottleId: string; txHash: string }[] = []
-  for (const bottle of bottles) {
-    if (!bottle.utxo_hash || bottle.utxo_index === null) continue
+  for (let i = 0; i < readyBottles.length; i++) {
+    const bottle = readyBottles[i]
+    if (i >= operatorUtxos.length) {
+      console.warn(`[collect] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      break
+    }
 
     const user = await usersDb.findById(bottle.user_id)
     if (!user) continue
@@ -191,8 +230,9 @@ export async function collectContainer(containerId: string, routeId: string) {
         bottleId: bottle.bottle_id_text,
         targetStage: 'collected',
         userAddr: user.wallet_address,
-        utxoHash: bottle.utxo_hash,
-        utxoIndex: bottle.utxo_index,
+        utxoHash: bottle.utxo_hash!,
+        utxoIndex: bottle.utxo_index!,
+        operatorTxIn: operatorUtxos[i].txIn,
       })
 
       await txsDb.create({
@@ -239,10 +279,29 @@ export async function deliverToStation(routeId: string, stationId: string) {
     throw new Error('Nenhuma garrafa collected encontrada nesta rota')
   }
 
+  // Verifica se todas as garrafas tem UTxO confirmado on-chain
+  const readyBottles = collectedBottles.filter(b => b.utxo_hash && b.utxo_index !== null)
+  if (readyBottles.length < collectedBottles.length) {
+    const pending = collectedBottles.length - readyBottles.length
+    throw new Error(
+      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+    )
+  }
+
+  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
+  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  if (operatorUtxos.length === 0) {
+    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+  }
+
   // Submete tx de avanco para cada garrafa
   const results: { bottleId: string; txHash: string }[] = []
-  for (const bottle of collectedBottles) {
-    if (!bottle.utxo_hash || bottle.utxo_index === null) continue
+  for (let i = 0; i < readyBottles.length; i++) {
+    const bottle = readyBottles[i]
+    if (i >= operatorUtxos.length) {
+      console.warn(`[deliver] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      break
+    }
 
     const user = await usersDb.findById(bottle.user_id)
     if (!user) continue
@@ -252,8 +311,9 @@ export async function deliverToStation(routeId: string, stationId: string) {
         bottleId: bottle.bottle_id_text,
         targetStage: 'atstation',
         userAddr: user.wallet_address,
-        utxoHash: bottle.utxo_hash,
-        utxoIndex: bottle.utxo_index,
+        utxoHash: bottle.utxo_hash!,
+        utxoIndex: bottle.utxo_index!,
+        operatorTxIn: operatorUtxos[i].txIn,
       })
 
       await txsDb.create({

@@ -429,7 +429,25 @@ A wallet do operador **precisa de tADA** para pagar as taxas de todas as transa�
    scripts/query-balance.sh
    ```
 
-### 9.4 Criar o usuário owner no frontend
+### 9.4 Fragmentar UTXOs do operador (obrigatório para operações batch)
+
+Operações que processam múltiplas garrafas (compactar, coletar, entregar) precisam de **1 UTXO do operador por garrafa**. O faucet envia tudo em um único UTXO, então é necessário fragmentá-lo:
+
+```bash
+scripts/split-utxos.sh 100
+```
+
+Isso cria 100 UTXOs de 10 ADA cada + 1 UTXO de troco. Aguarde ~20 segundos e verifique:
+
+```bash
+scripts/query-balance.sh
+```
+
+Deve listar 101 UTXOs. Sem essa etapa, operações batch processam apenas 1 garrafa por vez.
+
+> **Dica:** Se durante o uso os UTXOs acabarem (muitas operações em sequência), execute o script novamente.
+
+### 9.5 Criar o usuário owner no frontend
 
 Com a wallet do operador criada e financiada:
 
@@ -438,7 +456,7 @@ Com a wallet do operador criada e financiada:
 3. Selecione o cargo **owner**
 4. Preencha nome, email e cole o endereço da wallet do operador (`payment.addr`)
 
-### 9.5 Criar wallets dos recicladores (recyclers)
+### 9.6 Criar wallets dos recicladores (recyclers)
 
 As wallets dos recicladores servem apenas para **identificar o usuário** e receber recompensas Greentoken. As transações on-chain são financiadas pela wallet do operador, portanto **os recicladores não precisam de tADA** em suas wallets.
 
@@ -470,7 +488,7 @@ cardano-cli address build \
 cat assets/users/recycler1/payment.addr
 ```
 
-### 7.6 Criar o usuário recycler no frontend
+### 9.7 Criar o usuário recycler no frontend
 
 Com o endereço da wallet do reciclador em mãos:
 
@@ -482,7 +500,7 @@ Com o endereço da wallet do reciclador em mãos:
    scripts/get-pubkey-hash.sh <ENDERECO_DO_RECYCLER>
    ```
 
-### 7.7 Gerar chaves da minting policy
+### 9.8 Gerar chaves da minting policy
 
 ```bash
 scripts/setup-policy.sh
@@ -599,8 +617,9 @@ export CARDANO_NODE_MAGIC=1
 |--------|-----------|-----|
 | `scripts/setup-wallet.sh` | Gera chaves do operador | `scripts/setup-wallet.sh` |
 | `scripts/setup-policy.sh` | Gera minting policy | `scripts/setup-policy.sh` |
-| `scripts/query-bottle.sh` | Consulta UTxOs no script | `scripts/query-bottle.sh [TX_HASH]` |
+| `scripts/split-utxos.sh` | Fragmenta UTXO do operador para operações batch | `scripts/split-utxos.sh [N]` (padrão: 10) |
 | `scripts/query-balance.sh` | Consulta saldo | `scripts/query-balance.sh [ADDR\|USER_ID]` |
+| `scripts/get-pubkey-hash.sh` | Extrai pubkey hash de um endereço | `scripts/get-pubkey-hash.sh <ADDR>` |
 
 ### Cardano CLI
 
