@@ -6,13 +6,12 @@ import * as routesDb from '../db/queries/routes'
 import * as txsDb from '../db/queries/blockchain-txs'
 import * as rewardsDb from '../db/queries/rewards'
 import * as cardano from './cardano.service'
-import { REWARDS_BY_STAGE } from '../db/queries/rewards'
-import { validateStage, validateUUID } from '../validate'
+import { validateUUID } from '../validate'
 
 /**
  * Cria uma nova garrafa: gera nome automatico, verifica capacidade do container,
  * submete tx de mint e registra no banco.
- * O UTxO sera preenchido pelo confirmation worker apos confirmacao on-chain.
+ * O UTxO sera preenchido pelo confirmation worker após confirmação on-chain.
  */
 export async function create(params: {
   userId: string
@@ -23,10 +22,10 @@ export async function create(params: {
   const containerId = validateUUID(params.containerId)
 
   const user = await usersDb.findById(userId)
-  if (!user) throw new Error(`Usuario nao encontrado: ${userId}`)
+  if (!user) throw new Error(`Usuario não encontrado: ${userId}`)
 
   const container = await containersDb.findById(containerId)
-  if (!container) throw new Error(`Container nao encontrado: ${containerId}`)
+  if (!container) throw new Error(`Container não encontrado: ${containerId}`)
 
   // Verifica capacidade do container (converte ml para litros)
   const volumeLiters = params.volumeMl / 1000
@@ -50,7 +49,7 @@ export async function create(params: {
     userPubkeyHash: user.pubkey_hash,
   })
 
-  // 2. Registra a garrafa no banco (utxo ainda nao confirmado)
+  // 2. Registra a garrafa no banco (utxo ainda não confirmado)
   const bottle = await bottlesDb.create({
     user_id: userId,
     container_id: containerId,
@@ -94,7 +93,7 @@ export async function compactContainer(containerId: string) {
   const id = validateUUID(containerId)
 
   const container = await containersDb.findById(id)
-  if (!container) throw new Error(`Container nao encontrado: ${id}`)
+  if (!container) throw new Error(`Container não encontrado: ${id}`)
 
   const fillPercent = (container.current_volume_liters / container.capacity_liters) * 100
   if (fillPercent < 90) {
@@ -105,7 +104,7 @@ export async function compactContainer(containerId: string) {
 
   const bottles = await bottlesDb.findByContainerIdAndStage(id, 'inserted')
   if (bottles.length === 0) {
-    throw new Error('Nenhuma garrafa inserted encontrada neste container')
+    throw new Error('Nenhuma garrafa inserida encontrada neste container')
   }
 
   // Verifica se todas as garrafas tem UTxO confirmado on-chain
@@ -113,14 +112,14 @@ export async function compactContainer(containerId: string) {
   if (readyBottles.length < bottles.length) {
     const pending = bottles.length - readyBottles.length
     throw new Error(
-      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+      `${pending} garrafa(s) aguardando confirmação on-chain... Tente novamente em alguns segundos.`,
     )
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
   if (operatorUtxos.length === 0) {
-    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+    throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
   // Submete tx de avanco para cada garrafa
@@ -128,7 +127,7 @@ export async function compactContainer(containerId: string) {
   for (let i = 0; i < readyBottles.length; i++) {
     const bottle = readyBottles[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[compact] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      console.warn(`[compact] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
       break
     }
 
@@ -154,11 +153,11 @@ export async function compactContainer(containerId: string) {
       await bottlesDb.clearUtxo(bottle.id)
       results.push({ bottleId: bottle.id, txHash })
     } catch (err) {
-      console.error(`[compact] Erro ao avancar garrafa ${bottle.id}:`, err)
+      console.error(`[compact] Erro ao avançar garrafa ${bottle.id}:`, err)
     }
   }
 
-  // Atualiza estagio apenas para garrafas com tx submetida com sucesso
+  // Atualiza estágio apenas para garrafas com tx submetida com sucesso
   const successIds = results.map(r => r.bottleId)
   const count = await bottlesDb.compactByIds(successIds)
 
@@ -180,16 +179,16 @@ export async function collectContainer(containerId: string, routeId: string) {
   const rId = validateUUID(routeId)
 
   const container = await containersDb.findById(cId)
-  if (!container) throw new Error(`Container nao encontrado: ${cId}`)
+  if (!container) throw new Error(`Container não encontrado: ${cId}`)
 
   const route = await routesDb.findById(rId)
-  if (!route) throw new Error(`Rota nao encontrada: ${rId}`)
+  if (!route) throw new Error(`Rota não encontrada: ${rId}`)
 
   // Verifica se todas as garrafas do container estao compactadas
   const insertedBottles = await bottlesDb.findByContainerIdAndStage(cId, 'inserted')
   if (insertedBottles.length > 0) {
     throw new Error(
-      `Container ainda tem ${insertedBottles.length} garrafa(s) nao compactada(s). Compacte antes de coletar.`,
+      `Container ainda tem ${insertedBottles.length} garrafa(s) não compactada(s). Compacte antes de coletar.`,
     )
   }
 
@@ -203,14 +202,14 @@ export async function collectContainer(containerId: string, routeId: string) {
   if (readyBottles.length < bottles.length) {
     const pending = bottles.length - readyBottles.length
     throw new Error(
-      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+      `${pending} garrafa(s) aguardando confirmação on-chain... Tente novamente em alguns segundos.`,
     )
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
   if (operatorUtxos.length === 0) {
-    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+    throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
   // Submete tx de avanco para cada garrafa
@@ -218,7 +217,7 @@ export async function collectContainer(containerId: string, routeId: string) {
   for (let i = 0; i < readyBottles.length; i++) {
     const bottle = readyBottles[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[collect] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      console.warn(`[collect] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
       break
     }
 
@@ -244,7 +243,7 @@ export async function collectContainer(containerId: string, routeId: string) {
       await bottlesDb.clearUtxo(bottle.id)
       results.push({ bottleId: bottle.id, txHash })
     } catch (err) {
-      console.error(`[collect] Erro ao avancar garrafa ${bottle.id}:`, err)
+      console.error(`[collect] Erro ao avançar garrafa ${bottle.id}:`, err)
     }
   }
 
@@ -260,23 +259,23 @@ export async function collectContainer(containerId: string, routeId: string) {
 }
 
 /**
- * Entrega garrafas de uma rota em uma estacao de tratamento.
- * Move todas as garrafas 'collected' da rota para a estacao (atstation).
+ * Entrega garrafas de uma rota em uma estação de tratamento.
+ * Move todas as garrafas 'collected' da rota para a estação (atstation).
  */
 export async function deliverToStation(routeId: string, stationId: string) {
   const rId = validateUUID(routeId)
   const sId = validateUUID(stationId)
 
   const route = await routesDb.findById(rId)
-  if (!route) throw new Error(`Rota nao encontrada: ${rId}`)
+  if (!route) throw new Error(`Rota não encontrada: ${rId}`)
 
   const station = await stationsDb.findById(sId)
-  if (!station) throw new Error(`Estacao nao encontrada: ${sId}`)
+  if (!station) throw new Error(`estação não encontrada: ${sId}`)
 
   const bottles = await bottlesDb.findByRouteId(rId)
   const collectedBottles = bottles.filter(b => b.current_stage === 'collected')
   if (collectedBottles.length === 0) {
-    throw new Error('Nenhuma garrafa collected encontrada nesta rota')
+    throw new Error('Nenhuma garrafa coletada encontrada nesta rota')
   }
 
   // Verifica se todas as garrafas tem UTxO confirmado on-chain
@@ -284,14 +283,14 @@ export async function deliverToStation(routeId: string, stationId: string) {
   if (readyBottles.length < collectedBottles.length) {
     const pending = collectedBottles.length - readyBottles.length
     throw new Error(
-      `${pending} garrafa(s) aguardando confirmacao on-chain. Tente novamente em alguns segundos.`,
+      `${pending} garrafa(s) aguardando confirmação on-chain... Tente novamente em alguns segundos.`,
     )
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
   const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
   if (operatorUtxos.length === 0) {
-    throw new Error('Nenhum UTxO do operador disponivel para submeter transacoes')
+    throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
   // Submete tx de avanco para cada garrafa
@@ -299,7 +298,7 @@ export async function deliverToStation(routeId: string, stationId: string) {
   for (let i = 0; i < readyBottles.length; i++) {
     const bottle = readyBottles[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[deliver] Sem UTxO do operador disponivel para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente apos confirmacao.`)
+      console.warn(`[deliver] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
       break
     }
 
@@ -325,11 +324,11 @@ export async function deliverToStation(routeId: string, stationId: string) {
       await bottlesDb.clearUtxo(bottle.id)
       results.push({ bottleId: bottle.id, txHash })
     } catch (err) {
-      console.error(`[deliver] Erro ao avancar garrafa ${bottle.id}:`, err)
+      console.error(`[deliver] Erro ao avançar garrafa ${bottle.id}:`, err)
     }
   }
 
-  // Batch: move apenas garrafas com tx submetida para a estacao
+  // Batch: move apenas garrafas com tx submetida para a estação
   const successIds = results.map(r => r.bottleId)
   const count = await bottlesDb.deliverByIds(successIds, sId)
 
@@ -337,26 +336,26 @@ export async function deliverToStation(routeId: string, stationId: string) {
 }
 
 /**
- * Tritura uma garrafa na estacao de tratamento (atstation -> shredded).
+ * Tritura uma garrafa na estação de tratamento (atstation -> shredded).
  */
 export async function shredBottle(bottleId: string) {
   const id = validateUUID(bottleId)
 
   const bottle = await bottlesDb.findById(id)
-  if (!bottle) throw new Error(`Garrafa nao encontrada: ${id}`)
+  if (!bottle) throw new Error(`Garrafa não encontrada: ${id}`)
 
   if (bottle.current_stage !== 'atstation') {
     throw new Error(
-      `Garrafa precisa estar em 'atstation' para triturar. Estagio atual: '${bottle.current_stage}'`,
+      `Garrafa precisa estar em 'atstation' para triturar. Estágio atual: '${bottle.current_stage}'`,
     )
   }
 
   if (!bottle.station_id) {
-    throw new Error('Garrafa nao esta associada a nenhuma estacao')
+    throw new Error('Garrafa não esta associada a nenhuma estação')
   }
 
   const user = await usersDb.findById(bottle.user_id)
-  if (!user) throw new Error(`Usuario da garrafa nao encontrado: ${bottle.user_id}`)
+  if (!user) throw new Error(`Usuario da garrafa não encontrado: ${bottle.user_id}`)
 
   let txHash: string | null = null
 
@@ -384,7 +383,7 @@ export async function shredBottle(bottleId: string) {
 }
 
 /**
- * Tritura todas as garrafas atstation de uma estacao de tratamento.
+ * Tritura todas as garrafas atstation de uma estação de tratamento.
  * Submete txs on-chain para cada garrafa (com tolerancia a falhas),
  * depois atualiza o banco em batch.
  */
@@ -392,12 +391,12 @@ export async function shredStation(stationId: string) {
   const sId = validateUUID(stationId)
 
   const station = await stationsDb.findById(sId)
-  if (!station) throw new Error(`Estacao nao encontrada: ${sId}`)
+  if (!station) throw new Error(`estação não encontrada: ${sId}`)
 
   const bottles = await bottlesDb.findByStationId(sId)
   const atstationBottles = bottles.filter(b => b.current_stage === 'atstation')
   if (atstationBottles.length === 0) {
-    throw new Error('Nenhuma garrafa atstation encontrada nesta estacao')
+    throw new Error('Nenhuma garrafa na estação encontrada nesta estação')
   }
 
   // Submete tx de avanco para cada garrafa (tolerante a falhas)
@@ -426,7 +425,7 @@ export async function shredStation(stationId: string) {
       await bottlesDb.clearUtxo(bottle.id)
       results.push({ bottleId: bottle.id, txHash })
     } catch (err) {
-      console.error(`[shred] Erro ao avancar garrafa ${bottle.id}:`, err)
+      console.error(`[shred] Erro ao avançar garrafa ${bottle.id}:`, err)
     }
   }
 
@@ -443,7 +442,7 @@ export async function shredStation(stationId: string) {
 export async function getHistory(bottleId: string) {
   const id = validateUUID(bottleId)
   const bottle = await bottlesDb.findById(id)
-  if (!bottle) throw new Error(`Garrafa nao encontrada: ${id}`)
+  if (!bottle) throw new Error(`Garrafa não encontrada: ${id}`)
 
   const txs = await txsDb.findByBottleId(id)
   const rewards = await rewardsDb.findByBottleId(id)

@@ -93,7 +93,7 @@ export function UsersPage() {
         wallet_address: formAddress,
       });
 
-      toast.success(`Usuário "${user.name}" criado com sucesso.`);
+      toast.success(`Usuário "${user.name}" criado com sucesso.`, { duration: 5000 });
       setDialogOpen(false);
       setFormRole('recycler');
       setFormName('');
@@ -104,7 +104,7 @@ export function UsersPage() {
       setAddressError('');
       fetchUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar usuário');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar usuário', { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -117,7 +117,7 @@ export function UsersPage() {
       setTotalGreentoken(data.total_greentoken);
       setRewardsUser(user);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar recompensas');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar recompensas', { duration: 10000 });
     }
   };
 

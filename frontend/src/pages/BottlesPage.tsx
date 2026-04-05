@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +15,7 @@ import { useSortable } from '@/hooks/useSortable';
 import { SquareArrowRightEnter, Package, Truck, Factory, Recycle, Loader2 } from 'lucide-react';
 import {
   getBottles, getUsers, getContainers, getNextBottleNumber,
-  createBottle, getBottle,
+  createBottle,
   type Bottle, type User, type Container,
 } from '@/services/api';
 import { truncateMiddle } from '@/lib/truncate';
@@ -56,7 +56,8 @@ export function BottlesPage() {
 
   // Blockchain cooldown: after creating, poll until utxo is confirmed
   const [blockchainBusy, setBlockchainBusy] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingBottleIdRef = useRef<string | null>(null);
+  const autoRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Options for selects
   const [userOptions, setUserOptions] = useState<User[]>([]);
@@ -64,46 +65,43 @@ export function BottlesPage() {
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortable<Bottle>(bottles);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    setBlockchainBusy(false);
+  // Cleanup on unmount
+  useEffect(() => () => {
+    if (autoRefreshRef.current) clearTimeout(autoRefreshRef.current);
   }, []);
 
-  const startPolling = useCallback((bottleId: string) => {
-    setBlockchainBusy(true);
-    pollRef.current = setInterval(async () => {
-      try {
-        const data = await getBottle(bottleId);
-        if (data.bottle.utxo_hash) {
-          stopPolling();
-          fetchBottles();
-          toast.success('Blockchain pronta. Você pode criar outra garrafa.');
-        }
-      } catch {
-        // ignore polling errors
-      }
-    }, 5000);
-  }, [stopPolling]);
-
-  // Cleanup on unmount
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
-
-  const fetchBottles = async () => {
+  const fetchBottles = async (silent = false) => {
+    if (autoRefreshRef.current) {
+      clearTimeout(autoRefreshRef.current);
+      autoRefreshRef.current = null;
+    }
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [bottlesData, usersData] = await Promise.all([getBottles(), getUsers()]);
       setBottles(bottlesData);
       const map: Record<string, User> = {};
       for (const u of usersData) map[u.id] = u;
       setUsersMap(map);
       setError('');
+
+      // Check if the bottle we're waiting on is now confirmed
+      if (pendingBottleIdRef.current) {
+        const pending = bottlesData.find(b => b.id === pendingBottleIdRef.current);
+        if (pending?.utxo_hash) {
+          pendingBottleIdRef.current = null;
+          setBlockchainBusy(false);
+          toast.success('Blockchain pronta. Você pode criar outra garrafa.', { duration: 5000 });
+        }
+      }
+
+      // Auto-refresh silently while any bottle is still pending on-chain
+      if (bottlesData.some(b => !b.utxo_hash)) {
+        autoRefreshRef.current = setTimeout(() => fetchBottles(true), 5000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar garrafas');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -127,7 +125,7 @@ export function BottlesPage() {
       setVolumeError('');
       setDialogOpen(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados para formulário');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados para formulário', { duration: 10000 });
     }
   };
 
@@ -180,14 +178,16 @@ export function BottlesPage() {
         container_id: formContainerId,
         volume_ml: Number(formVolume),
       });
-      toast.success(`Garrafa "${result.bottle.bottle_id_text}" criada. Aguardando confirmação on-chain.`, {
+      toast.success(`Garrafa "${result.bottle.bottle_id_text}" criada. Aguardando confirmação on-chain...`, {
         description: `tx: ${result.tx_hash}`,
+        duration: 5000
       });
       setDialogOpen(false);
-      startPolling(result.bottle.id);
+      pendingBottleIdRef.current = result.bottle.id;
+      setBlockchainBusy(true);
       fetchBottles();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar garrafa');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar garrafa', { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -205,7 +205,7 @@ export function BottlesPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Garrafas</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={fetchBottles}>Atualizar</Button>
+          <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={() => fetchBottles()}>Atualizar</Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={openCreateDialog} disabled={blockchainBusy}>
