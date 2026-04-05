@@ -106,11 +106,11 @@ export function StationsPage() {
         ...(formLatitude ? { latitude: Number(formLatitude) } : {}),
         ...(formLongitude ? { longitude: Number(formLongitude) } : {}),
       });
-      toast.success(`Estação "${formName}" criada com sucesso.`);
+      toast.success(`Estação "${formName}" criada com sucesso.`, { duration: 5000 });
       setDialogOpen(false);
       fetchStations();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar estação');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar estação', { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +123,7 @@ export function StationsPage() {
       const bottles = await getStationBottles(station.id);
       setStationBottles(bottles);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar garrafas');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar garrafas', { duration: 10000 });
     } finally {
       setBottlesLoading(false);
     }
@@ -132,14 +132,14 @@ export function StationsPage() {
   const handleShredAll = async () => {
     if (!selectedStation) return;
     setShredding(true);
-    const toastId = toast.loading(`Triturando garrafas na estação "${selectedStation.name}"... Aguardando transações na blockchain.`);
+    const toastId = toast.loading(<>Triturando garrafas na estação "{selectedStation.name}".<br />Aguardando transações na blockchain...</>, { duration: 7500 });
     try {
       const result = await shredStation(selectedStation.id);
-      toast.success(result.message, { id: toastId });
+      toast.success(result.message, { id: toastId, duration: 5000 });
       const bottles = await getStationBottles(selectedStation.id);
       setStationBottles(bottles);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao triturar garrafas', { id: toastId });
+      toast.error(err instanceof Error ? err.message : 'Erro ao triturar garrafas', { id: toastId, duration: 10000 });
     } finally {
       setShredding(false);
     }

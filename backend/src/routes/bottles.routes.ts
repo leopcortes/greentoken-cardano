@@ -82,7 +82,7 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({
       bottle: result.bottle,
       tx_hash: result.txHash,
-      message: 'Garrafa criada. Aguardando confirmacao on-chain.',
+      message: 'Garrafa criada. Aguardando confirmacao on-chain...',
     })
   } catch (err: any) {
     res.status(500).json({ error: err.message })

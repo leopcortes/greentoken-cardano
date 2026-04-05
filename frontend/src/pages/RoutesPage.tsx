@@ -111,11 +111,11 @@ export function RoutesPage() {
         container_ids: selectedContainers,
         station_id: selectedStation,
       });
-      toast.success('Rota de coleta criada com sucesso.');
+      toast.success('Rota de coleta criada com sucesso.', { duration: 5000 });
       setRouteDialogOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar rota');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar rota', { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -134,13 +134,13 @@ export function RoutesPage() {
 
   try {
     await createTruck({ license_plate: formPlate });
-    toast.success(`Caminhão "${formPlate}" cadastrado com sucesso.`);
+    toast.success(`Caminhão "${formPlate}" cadastrado com sucesso.`, { duration: 5000 });
     setTruckDialogOpen(false);
     setFormPlate('');
     setPlateError('');
     fetchData();
   } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Erro ao criar caminhão');
+    toast.error(err instanceof Error ? err.message : 'Erro ao criar caminhão', { duration: 10000 });
   } finally {
     setSubmitting(false);
   }
@@ -156,17 +156,17 @@ export function RoutesPage() {
   };
 
   const handleCollectStop = async (stopId: string) => {
-    const toastId = toast.loading('Coletando parada... Movendo garrafas para o estágio coletadas. Aguardando transações na blockchain.');
+    const toastId = toast.loading(<>Coletando parada e movendo garrafas para o estágio coletadas.<br />Aguardando transações na blockchain...</>, { duration: 7500 });
     try {
       const result = await collectStop(stopId);
-      toast.success(result.message, { id: toastId });
+      toast.success(result.message, { id: toastId, duration: 5000 });
       if (detailRoute) {
         const updated = await getRoute(detailRoute.id);
         setDetailRoute(updated);
       }
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada', { id: toastId });
+      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada', { id: toastId, duration: 10000 });
     }
   };
 
@@ -176,20 +176,20 @@ export function RoutesPage() {
     // Precisa de uma estação: usa a da rota ou pede seleção
     const stationId = detailRoute.station_id;
     if (!stationId) {
-      toast.error('Esta rota não tem estação de destino definida. Edite a rota ou selecione uma estação ao criar.');
+      toast.error('Esta rota não tem estação de destino definida. Edite a rota ou selecione uma estação ao criar.', { duration: 10000 });
       return;
     }
 
     setDelivering(true);
-    const toastId = toast.loading('Entregando garrafas na estação... Aguardando transações na blockchain.');
+    const toastId = toast.loading(<>Entregando garrafas na estação.<br />Aguardando transações na blockchain...</>, { duration: 7500 });
     try {
       const result = await deliverRoute(detailRoute.id, stationId);
-      toast.success(result.message, { id: toastId });
+      toast.success(result.message, { id: toastId, duration: 5000 });
       const updated = await getRoute(detailRoute.id);
       setDetailRoute(updated);
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao entregar garrafas', { id: toastId });
+      toast.error(err instanceof Error ? err.message : 'Erro ao entregar garrafas', { id: toastId, duration: 10000 });
     } finally {
       setDelivering(false);
     }

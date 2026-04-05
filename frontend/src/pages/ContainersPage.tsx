@@ -83,7 +83,7 @@ export function ContainersPage() {
       setCapacityError('');
       setDialogOpen(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar owners');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar owners', { duration: 10000 });
     }
   };
 
@@ -126,11 +126,11 @@ export function ContainersPage() {
         capacity_liters: Number(formCapacity),
       });
 
-      toast.success(`Container "${formName}" criado com sucesso.`);
+      toast.success(`Container "${formName}" criado com sucesso.`, { duration: 5000 });
       setDialogOpen(false);
       fetchContainers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar container');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar container', { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -138,13 +138,13 @@ export function ContainersPage() {
 
   const handleCompact = async (container: Container) => {
     setCompactingId(container.id);
-    const toastId = toast.loading(`Compactando garrafas de "${container.name}"... Aguardando transações na blockchain.`);
+    const toastId = toast.loading(<>Compactando garrafas de "${container.name}".<br />Aguardando transações na blockchain...</>, { duration: 7500 });
     try {
       const result = await compactContainer(container.id);
-      toast.success(result.message, { id: toastId });
+      toast.success(result.message, { id: toastId, duration: 5000 });
       fetchContainers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao compactar', { id: toastId });
+      toast.error(err instanceof Error ? err.message : 'Erro ao compactar', { id: toastId, duration: 10000 });
     } finally {
       setCompactingId(null);
     }

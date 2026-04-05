@@ -2,6 +2,17 @@
 
 Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usando smart contracts Plutus V2. Cada garrafa passa por 5 estágios (`inserted -> compacted -> collected -> atstation -> shredded`), e o reciclador recebe **tokens Greentoken** como recompensa a cada transição.
 
+### Recompensas por estágio
+
+| Estágio | Greentoken | Descrição |
+|---------|-----------|-----------|
+| inserted | 10 | Garrafa inserida no container |
+| compacted | 5 | Garrafas do container compactadas |
+| collected | 5 | Container coletado pelo caminhão |
+| atstation | 10 | Garrafas entregues na estação |
+| shredded | 20 | Garrafas trituradas na estação |
+| **Total** | **50** | Por garrafa, do início ao fim |
+
 ---
 
 ## Arquitetura
@@ -15,23 +26,64 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 
 ### Fluxo de integração com a blockchain
 
+Cada operação no sistema segue o mesmo padrão assíncrono: o backend submete a transação Cardano imediatamente e retorna o `tx_hash` ao frontend, enquanto um **confirmation worker** em background aguarda a confirmação on-chain.
+
+#### Componentes envolvidos
+
+| Componente | Arquivo | Responsabilidade |
+|---|---|---|
+| **Frontend** | `frontend/src/pages/*.tsx` | Chama a API e faz polling até confirmar o UTxO |
+| **API REST** | `backend/src/routes/*.routes.ts` | Recebe a requisição e aciona o serviço |
+| **Bottle Service** | `backend/src/services/bottle.service.ts` | Orquestra blockchain + banco de dados |
+| **Cardano Service** | `backend/src/services/cardano.service.ts` | Wrapper do `cardano-cli` - única camada que toca a blockchain |
+| **Confirmation Worker** | `backend/src/workers/confirmation.worker.ts` | Detecta UTxOs confirmados e atualiza o banco |
+| **Smart Contract** | `onchain/src/Greentoken/BottleValidator.hs` | Validador Plutus V2 compilado em `assets/bottle-validator.plutus` |
+
+#### Detalhe do Cardano Service
+
+O `cardano.service.ts` chama o `cardano-cli` diretamente para cada operação:
+
+**Criar garrafa** - minta NFT + tokens iniciais:
 ```
-  Dashboard Frontend
-         |
-         |--- API REST (Backend Node.js)
-         |        |
-         |        |-- Submete transação na blockchain Cardano (cardano-cli)
-         |        |-- Registra garrafa + tx pendente no PostgreSQL
-         |
-         |   ~~~ confirmation worker (polling a cada 15s) ~~~
-         |
-         |        |-- Detecta UTxO confirmado on-chain
-         |        |     |-- Atualiza tx -> confirmed
-         |        |     |-- Atualiza garrafa -> utxo_hash
-         |        |     |-- Registra recompensa Greentoken
-         |
-         |--- Dados disponíveis via API e renderizados no dashboard
+1. queryUtxosJson(operatorAddr)    → localiza UTxO do operador com ≥5 ADA
+2. cardano-cli transaction build   → constrói tx: UTxO no script com datum {owner, bottleId, stage=inserted} + mint 10 Greentoken para o reciclador
+3. cardano-cli transaction sign    → assina com operatorSkey + policySkey
+4. cardano-cli transaction submit  → envia ao nó Cardano (testnet)
+5. retorna txHash imediatamente
 ```
+
+**Avançar estágio** - consome UTxO antigo e cria novo:
+```
+1. Usa o utxo_hash + utxo_index da garrafa como tx-in no endereço do script
+2. Executa o validador Plutus (redeemer com a transição desejada)
+3. Cria novo UTxO no script com datum atualizado (ex: stage=compacted)
+4. Minta tokens de recompensa para o reciclador
+```
+
+#### Smart Contract (Plutus V2)
+
+O validador on-chain aceita apenas transições válidas:
+
+```haskell
+validTransition Inserted  Compacted = True
+validTransition Compacted Collected = True
+validTransition Collected AtStation = True
+validTransition AtStation Shredded  = True
+validTransition _         _         = False
+```
+
+Se a transição for inválida, a transação é rejeitada pela rede Cardano.
+
+#### Confirmation Worker
+
+Roda a cada 15 segundos (configurável via `CONFIRMATION_POLL_MS`):
+
+1. Busca todas as `blockchain_txs` com `status='pending'`
+2. Para cada tx: chama `queryUtxosJson(scriptAddr)` e verifica se `txHash#index` existe
+3. Quando confirmado:
+   - Atualiza `bottles.utxo_hash`, `bottles.utxo_index` e `bottles.current_stage`
+   - Marca `blockchain_txs.status = 'confirmed'`
+   - Cria registro em `rewards` com o valor do estágio
 
 ### Como cada operação usa a blockchain Cardano
 
@@ -44,19 +96,6 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 | **Triturar** | Advance stage (por garrafa) | Consome UTxO `atstation`, cria UTxO `shredded`. Minta 20 Greentoken. |
 
 Cada transação é submetida via `cardano-cli`, assinada pelo operador + policy key, e confirmada pelo **confirmation worker** que verifica a presença do UTxO no endereço do script a cada 15 segundos.
-
----
-
-## Recompensas por estágio
-
-| Estágio | Greentoken | Descrição |
-|---------|-----------|-----------|
-| inserted | 10 | Garrafa inserida no container |
-| compacted | 5 | Garrafas do container compactadas |
-| collected | 5 | Container coletado pelo caminhão |
-| atstation | 10 | Garrafas entregues na estação |
-| shredded | 20 | Garrafas trituradas na estação |
-| **Total** | **50** | Por garrafa, do início ao fim |
 
 ---
 
@@ -128,7 +167,6 @@ greentoken-cardano/
 |--------|--------|-----|
 | `split-utxos.sh` | Fragmenta o UTXO do operador em N UTXOs menores | `scripts/split-utxos.sh [N]` (padrão: 10) |
 | `query-balance.sh` | Saldo de qualquer endereço | `scripts/query-balance.sh [ADDR\|USER_ID]` |
-
 
 ---
 
