@@ -293,9 +293,9 @@ export function UsersPage() {
       <Dialog open={!!rewardsUser} onOpenChange={() => setRewardsUser(null)}>
         <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Recompensas - {rewardsUser?.name}</DialogTitle>
+            <DialogTitle className='text-xl'>Recompensas - {rewardsUser?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2 text-lg font-semibold">
               <span className="text-green-600">Total: {totalGreentoken} Greentoken</span>
             </div>

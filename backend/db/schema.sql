@@ -20,13 +20,12 @@ CREATE TABLE containers (
   location_name         VARCHAR(255),
   latitude              FLOAT,
   longitude             FLOAT,
-  capacity_liters       NUMERIC(10,1) NOT NULL,
-  current_volume_liters NUMERIC(10,1) NOT NULL DEFAULT 0,
+  capacity_liters       NUMERIC(10,2) NOT NULL,
+  current_volume_liters NUMERIC(10,2) NOT NULL DEFAULT 0,
   status                VARCHAR(20)  NOT NULL DEFAULT 'active'
                           CHECK (status IN ('active', 'full', 'compacted', 'in_route', 'maintenance')),
   last_updated          TIMESTAMP    NOT NULL DEFAULT NOW()
 );
-
 
 -- Caminhoes
 CREATE TABLE trucks (
@@ -60,7 +59,7 @@ CREATE TABLE routes (
 );
 
 -- um container por parada
--- Container sóso entra na rota quando status = 'full'
+-- Container só entra na rota quando status = 'full'
 CREATE TABLE route_stops (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id     UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
@@ -200,7 +199,7 @@ VALUES (
   'Asa Norte, Brasília',
   -15.762412,
   -47.872549,
-  10.0,
+  10.00,
   'active'
 );
 
@@ -211,7 +210,7 @@ VALUES (
   'Asa Norte, Brasília',
   -15.761322,
   -47.867377,
-  5.0,
+  5.00,
   'active'
 );
 

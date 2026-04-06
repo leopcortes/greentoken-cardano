@@ -11,6 +11,7 @@ import { CopyButton } from '@/components/ui/copy-button';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { useSortable } from '@/hooks/useSortable';
+import { truncateMiddle } from '@/lib/truncate';
 import {
   getStations, createStation, getStationBottles, shredStation,
   type Station, type Bottle,
@@ -340,10 +341,10 @@ export function StationsPage() {
                     <TableBody>
                       {stationBottles.map(bottle => (
                         <TableRow key={bottle.id}>
-                          <TableCell>
+                          <TableCell className='flex gap-2'>
                             <div className="text-sm font-medium">{bottle.bottle_id_text}</div>
-                            <div className="flex items-center gap-0.5 mt-0.5">
-                              <span className="font-mono text-[11px] text-muted-foreground">{bottle.id}</span>
+                            <div className="flex items-center gap-0.5">
+                              <span className="font-mono text-xs text-muted-foreground">({truncateMiddle(bottle.id, 12, 4)})</span>
                               <CopyButton className="ml-1" value={bottle.id} />
                             </div>
                           </TableCell>

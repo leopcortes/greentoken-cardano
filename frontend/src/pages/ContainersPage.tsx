@@ -138,7 +138,7 @@ export function ContainersPage() {
 
   const handleCompact = async (container: Container) => {
     setCompactingId(container.id);
-    const toastId = toast.loading(<>Compactando garrafas de "${container.name}".<br />Aguardando transações na blockchain...</>, { duration: 7500 });
+    const toastId = toast.loading(<>Compactando garrafas de "{container.name}".<br />Aguardando transações na blockchain...</>, { duration: 7500 });
     try {
       const result = await compactContainer(container.id);
       toast.success(result.message, { id: toastId, duration: 5000 });
@@ -340,7 +340,7 @@ export function ContainersPage() {
                         />
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {Number(c.current_volume_liters).toFixed(1)}/{Number(c.capacity_liters).toFixed(1)}L
+                        {Number(c.current_volume_liters).toFixed(2)}/{Number(c.capacity_liters).toFixed(2)}L
                       </span>
                     </div>
                   </TableCell>
