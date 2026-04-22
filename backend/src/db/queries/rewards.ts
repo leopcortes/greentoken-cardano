@@ -15,8 +15,8 @@ export interface Reward {
 // Recompensas por estagio - valores iguais aos dos bash scripts (on-chain)
 export const REWARDS_BY_STAGE: Record<string, number> = {
   inserted: 10,
-  compacted: 5,
-  collected: 5,
+  compacted: 3,
+  collected: 7,
   atstation: 10,
   shredded: 20,
 }

@@ -7,8 +7,8 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 | Estágio | Greentoken | Descrição |
 |---------|-----------|-----------|
 | inserted | 10 | Garrafa inserida no container |
-| compacted | 5 | Garrafas do container compactadas |
-| collected | 5 | Container coletado pelo caminhão |
+| compacted | 3 | Garrafas do container compactadas |
+| collected | 7 | Container coletado pelo caminhão |
 | atstation | 10 | Garrafas entregues na estação |
 | shredded | 20 | Garrafas trituradas na estação |
 | **Total** | **50** | Por garrafa, do início ao fim |
@@ -90,8 +90,8 @@ Roda a cada 15 segundos (configurável via `CONFIRMATION_POLL_MS`):
 | Operação | Transação on-chain | Detalhes |
 |----------|-------------------|----------|
 | **Criar garrafa** | Mint de NFT + 10 Greentoken | Cria um UTxO no endereço do script Plutus com datum `{user, bottleId, stage=inserted}`. Minta 10 Greentoken e envia à carteira do reciclador. |
-| **Compactar** | Advance stage (por garrafa) | Consome o UTxO `inserted` do script, cria novo UTxO com datum `stage=compacted`. Minta 5 Greentoken para o reciclador. Requer redeemer de transição. |
-| **Coletar** | Advance stage (por garrafa) | Consome UTxO `compacted`, cria UTxO `collected`. Minta 5 Greentoken. |
+| **Compactar** | Advance stage (por garrafa) | Consome o UTxO `inserted` do script, cria novo UTxO com datum `stage=compacted`. Minta 3 Greentoken para o reciclador. Requer redeemer de transição. |
+| **Coletar** | Advance stage (por garrafa) | Consome UTxO `compacted`, cria UTxO `collected`. Minta 7 Greentoken. |
 | **Entregar na estação** | Advance stage (por garrafa) | Consome UTxO `collected`, cria UTxO `atstation`. Minta 10 Greentoken. |
 | **Triturar** | Advance stage (por garrafa) | Consome UTxO `atstation`, cria UTxO `shredded`. Minta 20 Greentoken. |
 
@@ -331,14 +331,14 @@ O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam p
    |  [botão bloqueado até confirmação on-chain da garrafa anterior]
          |
 5. Container >= 90% -> botão "Compactar" habilitado
-   |  (garrafa: inserted -> compacted | recompensa: 5 Greentoken)
+   |  (garrafa: inserted -> compacted | recompensa: 3 Greentoken)
    |  [container muda para status "compactado" após compactação]
          |
 6. Criar Rota de Coleta
    |  (selecionar caminhão disponível + containers compactados + estação de destino)
          |
 7. Coletar Paradas da Rota (uma a uma)
-   |  (garrafa: compacted -> collected | recompensa: 5 Greentoken)
+   |  (garrafa: compacted -> collected | recompensa: 7 Greentoken)
    |  [garrafas saem do container e ficam associadas ao caminhão]
    |  [container volta a status "ativo" com volume zerado]
          |
