@@ -103,34 +103,10 @@ curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/doc
 curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/byron-genesis.json -o byron-genesis.json
 curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/shelley-genesis.json -o shelley-genesis.json
 curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/alonzo-genesis.json -o alonzo-genesis.json
-curl -sL https://raw.githubusercontent.com/IntersectMBO/cardano-world/master/docs/environments/preprod/conway-genesis.json -o conway-genesis.json
+curl -sL https://book.play.dev.cardano.org/environments/preprod/conway-genesis.json -o conway-genesis.json
 ```
 
-### 3.3 Corrigir o config.json
-
-O `config.json` do cardano-world pode precisar de ajustes para versões recentes do cardano-node (10.x):
-
-**a) Corrigir o ConwayGenesisHash:**
-
-O hash no config.json precisa corresponder ao arquivo conway-genesis.json baixado. Se o nó reportar `GenesisHashMismatch`, extraia o hash correto da mensagem de erro e atualize o campo `ConwayGenesisHash` no `config.json`.
-
-> Nota: Cardano usa **Blake2b-256**, não SHA-256. O hash correto aparece na mensagem de erro do nó.
-
-**b) Adicionar TraceOptions (se ausente):**
-
-Se o nó reclamar de `TraceOptions` faltando, adicione ao `config.json`:
-
-```json
-{
-  "UseTraceDispatcher": false,
-  "TraceOptions": {
-    "ChainDB": { "severity": "Info" },
-    "Net": { "severity": "Info" }
-  }
-}
-```
-
-### 3.4 Criar o script de inicialização
+### 3.3 Criar o script de inicialização
 
 ```bash
 cat > ~/cardano/start-node.sh << 'EOF'
@@ -196,18 +172,93 @@ rmdir ~/cardano/preprod/db/db
 
 ## 5. Iniciar o nó Cardano
 
-### 5.1 Iniciar em background
+### 5.1 Definir aliases para conveniência
+
+Adicione ao `~/.bashrc` antes de iniciar o nó pela primeira vez:
 
 ```bash
-nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 &
+alias cardano-start='nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 & echo Nó iniciado'
+alias cardano-end='pkill -f cardano-node && echo Nó parado'
+alias cardano-report='cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket'
+alias cardano-log='tail -f ~/cardano/node.log'
+
+export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
+export CARDANO_NODE_MAGIC=1
 ```
 
-### 5.2 Verificar sincronização
+Recarregue:
+```bash
+source ~/.bashrc
+```
+
+### 5.2 Iniciar o nó
 
 ```bash
-cardano-cli conway query tip \
-  --testnet-magic 1 \
-  --socket-path ~/cardano/preprod/node.socket
+cardano-start
+```
+
+### 5.3 Verificar e corrigir o config.json (se necessário)
+
+Observe os logs por alguns segundos após iniciar:
+
+```bash
+cardano-log
+```
+
+#### Erro: `GenesisHashMismatch`
+
+Se o nó encerrar com a seguinte mensagem:
+
+```
+GenesisHashMismatch "aaaa...1111" "bbbb...2222"
+```
+
+O nó está comparando o hash registrado no `config.json` com o hash real do arquivo `conway-genesis.json` no disco. O formato é:
+
+```
+GenesisHashMismatch "<hash que está no config.json>" "<hash real do arquivo em disco>"
+```
+
+**O segundo valor é o correto** - é o hash calculado do arquivo que você baixou. Atualize o campo `ConwayGenesisHash` no `config.json` com ele:
+
+```bash
+nano ~/cardano/preprod/config.json
+```
+
+Localize a linha com o hash antigo e substitua pelo segundo valor da mensagem de erro:
+
+```json
+"ConwayGenesisHash": "bbbb...2222"
+```
+
+Reinicie o nó após corrigir:
+
+```bash
+cardano-end
+cardano-start
+cardano-log
+```
+
+#### Erro: `TraceOptions` / `UseTraceDispatcher`
+
+Se o nó reclamar de `TraceOptions` faltando, adicione ao `config.json`:
+
+```json
+"UseTraceDispatcher": false,
+"TraceOptions": {
+  "ChainDB": { "severity": "Info" },
+  "Net": { "severity": "Info" }
+}
+```
+
+Reinicie com `cardano-end && cardano-start` após qualquer alteração no `config.json`.
+
+### 5.4 Verificar sincronização
+
+Aguarde ~10 segundos após iniciar e consulte o progresso:
+
+```bash
+cardano-report
 ```
 
 Saída esperada quando sincronizado:
@@ -221,24 +272,10 @@ Saída esperada quando sincronizado:
 
 > **Nota:** O nó precisa estar rodando sempre que for submeter transações ou consultar a blockchain. Após o `cardano-start`, aguarde ~10 segundos antes de usar o `cardano-cli` (o socket demora para ficar disponível).
 
-### 5.3 Parar o nó
+### 5.5 Parar o nó
 
 ```bash
-pkill -f cardano-node
-```
-
-### 5.4 Aliases para conveniência
-
-Adicione ao `~/.bashrc`:
-
-```bash
-alias cardano-start='nohup ~/cardano/start-node.sh > ~/cardano/node.log 2>&1 & echo Nó iniciado'
-alias cardano-end='pkill -f cardano-node && echo Nó parado'
-alias cardano-report='cardano-cli conway query tip --testnet-magic 1 --socket-path ~/cardano/preprod/node.socket'
-alias cardano-log='tail -f ~/cardano/node.log'
-
-export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
-export CARDANO_NODE_MAGIC=1
+cardano-end
 ```
 
 ---
@@ -421,7 +458,7 @@ O sistema usa dois tipos de wallet: a **wallet do operador (owner)** que financi
 
 ### 9.1 Definir variáveis de ambiente
 
-(Já deve estar configurado em `~/.bashrc` pelo passo 5.4)
+(Já deve estar configurado em `~/.bashrc` pelo passo 5.1)
 
 ```bash
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
