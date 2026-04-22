@@ -392,6 +392,33 @@ O Vite está configurado para redirecionar chamadas `/api/*` para `http://localh
 
 O sistema usa dois tipos de wallet: a **wallet do operador (owner)** que financia todas as transações on-chain, e as **wallets dos recicladores (recyclers)** que apenas identificam os usuários e recebem recompensas Greentoken.
 
+> ### Atenção! Configurando em um dispositivo secundário?
+>
+> O `schema.sql` já insere automaticamente os dados iniciais ao ser aplicado (passo 6.5):
+> - **Usuários:** owner padrão + 2 recicladores (com wallet address e pubkey_hash já definidos)
+> - **Containers:** Ponto de Coleta FT UnB (10L) e BCE UnB (5L)
+> - **Estações:** Central de Reciclagem e Complexo Integrado de Reciclagem
+> - **Caminhões:** PBX-6480, XYZ-9876 e ABC-1234
+>
+> Por isso, **pule os passos 9.5, 9.6 e 9.7** - os usuários e demais dados já foram criados pelo seed.
+>
+> **Não execute** `scripts/setup-wallet.sh` (9.2) nem `scripts/setup-policy.sh` (9.8). Recriar as chaves geraria um endereço de wallet e um `policyID` diferentes, tornando os tokens e UTXOs existentes na blockchain inacessíveis.
+>
+> Em vez disso, **copie manualmente** do dispositivo original os arquivos abaixo (excluídos do repositório por segurança):
+> ```
+> assets/wallet/payment.skey
+> assets/wallet/payment.vkey
+> assets/policy/policy.skey
+> assets/policy/policy.vkey
+> ```
+>
+> Se não tiver acesso, solicite ao dono do repositório.
+>
+> Após copiar as chaves, execute apenas:
+> - **9.1** - definir variáveis de ambiente
+> - **9.3** - verifique o saldo com `scripts/query-balance.sh` (o tADA está on-chain, não no dispositivo)
+> - **9.4** - fragmente UTXOs se necessário
+
 ### 9.1 Definir variáveis de ambiente
 
 (Já deve estar configurado em `~/.bashrc` pelo passo 5.4)
