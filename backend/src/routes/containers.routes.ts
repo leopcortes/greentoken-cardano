@@ -81,26 +81,10 @@ router.post('/:id/collected', async (req: Request, res: Response) => {
   }
 })
 
-// POST /containers/:id/compact - compacta garrafas inserted do container (>= 90% cheio)
-router.post('/:id/compact', async (req: Request, res: Response) => {
+// GET /containers/status/ready - lista containers prontos para coleta (>= 90% cheios)
+router.get('/status/ready', async (_req: Request, res: Response) => {
   try {
-    const result = await containerService.compact(req.params.id as string)
-    res.json({
-      message: `${result.compacted} garrafa(s) compactada(s)`,
-      ...result,
-    })
-  } catch (err: any) {
-    if (err.message.includes('90%') || err.message.includes('Nenhuma')) {
-      return res.status(400).json({ error: err.message })
-    }
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// GET /containers/full - lista containers cheios (prontos para rota)
-router.get('/status/full', async (_req: Request, res: Response) => {
-  try {
-    const containers = await containerService.listFull()
+    const containers = await containerService.listReadyForCollection()
     res.json(containers)
   } catch (err: any) {
     res.status(500).json({ error: err.message })

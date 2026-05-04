@@ -1,14 +1,3 @@
-# Artefatos antigos mantidos apenas como backup
-DEPRECATED_*
-DEPRECATED_*/
-
-# Build artifacts antigos
-dist-newstyle/
-.stack-work/
-.cache/
-*.hi
-*.o
-
 # Build Aiken
 aiken/build/
 aiken/plutus.json

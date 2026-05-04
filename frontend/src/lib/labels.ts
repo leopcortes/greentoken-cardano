@@ -37,8 +37,7 @@ export const STOP_STATUS_LABELS: Record<string, string> = {
 /** Tradução visual de status de containers. */
 export const CONTAINER_STATUS_LABELS: Record<string, string> = {
   active: 'Ativo',
-  full: 'Cheio',
-  compacted: 'Compactado',
+  ready_for_collection: 'Pronto para coleta',
   in_route: 'Em rota de coleta',
   maintenance: 'Manutenção',
 };

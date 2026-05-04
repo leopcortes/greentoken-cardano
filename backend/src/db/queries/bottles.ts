@@ -139,15 +139,21 @@ export async function findByContainerIdAndStage(containerId: string, stage: stri
   return rows.map(parseRow)
 }
 
-// Batch: compacta garrafas inserted por IDs (apenas as que tiveram tx submetida)
-export async function compactByIds(bottleIds: string[]): Promise<number> {
-  if (bottleIds.length === 0) return 0
-  const { rowCount } = await pool.query(
-    `UPDATE bottles SET current_stage = 'compacted', compacted_at = NOW()
-     WHERE id = ANY($1) AND current_stage = 'inserted'`,
-    [bottleIds],
+// Garrafas inserted com UTxO confirmado e sem tx de compactação ainda submetida.
+// Usado pelo worker para auto-compactar individualmente cada garrafa após validação.
+export async function findReadyForAutoCompact(): Promise<Bottle[]> {
+  const { rows } = await pool.query(
+    `${BASE_SELECT}
+     WHERE b.current_stage = 'inserted'
+       AND b.utxo_hash IS NOT NULL
+       AND b.utxo_index IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM blockchain_txs t
+         WHERE t.bottle_id = b.id AND t.stage = 'compacted'
+       )
+     ORDER BY b.inserted_at ASC`,
   )
-  return rowCount ?? 0
+  return rows.map(parseRow)
 }
 
 // Batch: move garrafas compacted para uma rota por IDs (collected)

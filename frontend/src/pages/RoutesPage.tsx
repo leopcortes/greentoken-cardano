@@ -43,7 +43,7 @@ export function RoutesPage() {
 
   const [routeDialogOpen, setRouteDialogOpen] = useState(false);
   const [availableTrucks, setAvailableTrucks] = useState<Truck[]>([]);
-  const [fullContainers, setFullContainers] = useState<Container[]>([]);
+  const [readyContainers, setReadyContainers] = useState<Container[]>([]);
   const [selectedTruck, setSelectedTruck] = useState('');
   const [selectedContainers, setSelectedContainers] = useState<string[]>([]);
   const [stationOptions, setStationOptions] = useState<Station[]>([]);
@@ -80,11 +80,11 @@ export function RoutesPage() {
     try {
       const [trucksData, containersData, stationsData] = await Promise.all([
         getTrucks(),
-        getContainers({ status: 'compacted' }),
+        getContainers({ status: 'ready_for_collection' }),
         getStations(),
       ]);
       setAvailableTrucks(trucksData.filter(t => t.status === 'available'));
-      setFullContainers(containersData);
+      setReadyContainers(containersData);
       setStationOptions(stationsData);
       setSelectedTruck('');
       setSelectedContainers([]);
@@ -304,10 +304,10 @@ export function RoutesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Containers compactados<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
-              {fullContainers.length > 0 ? (
+              <Label>Containers prontos para coleta<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
+              {readyContainers.length > 0 ? (
                 <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2">
-                  {fullContainers.map(c => (
+                  {readyContainers.map(c => (
                     <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted rounded px-2 py-1">
                       <input
                         type="checkbox"
@@ -323,7 +323,7 @@ export function RoutesPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhum container compactado no momento</p>
+                <p className="text-sm text-muted-foreground">Nenhum container pronto para coleta no momento</p>
               )}
             </div>
             <div className="space-y-2">

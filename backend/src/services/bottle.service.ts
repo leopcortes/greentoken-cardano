@@ -60,8 +60,9 @@ export async function create(params: {
 
   // 3. Atualiza volume do container
   await containersDb.updateVolume(containerId, newVolume)
-  if (newVolume >= container.capacity_liters && container.status === 'active') {
-    await containersDb.updateStatus(containerId, 'full')
+  const fillPercent = (newVolume / container.capacity_liters) * 100
+  if (fillPercent >= 90 && container.status === 'active') {
+    await containersDb.updateStatus(containerId, 'ready_for_collection')
   }
 
   // 4. Registra a tx como pending
@@ -85,88 +86,40 @@ export async function create(params: {
 }
 
 /**
- * Compacta todas as garrafas 'inserted' de um container.
- * Container precisa estar >= 90% cheio.
- * Submete tx de avanco para cada garrafa.
+ * Compacta automaticamente uma garrafa individual logo após a validação on-chain
+ * da inserção. Submete a tx de avanço inserted -> compacted no smart contract,
+ * registra o blockchain_tx pendente e limpa o UTxO atual da garrafa (será
+ * preenchido novamente pelo worker quando a tx de compactação for confirmada).
  */
-export async function compactContainer(containerId: string) {
-  const id = validateUUID(containerId)
+export async function autoCompactBottle(bottleId: string) {
+  const id = validateUUID(bottleId)
 
-  const container = await containersDb.findById(id)
-  if (!container) throw new Error(`Container não encontrado: ${id}`)
+  const bottle = await bottlesDb.findById(id)
+  if (!bottle) throw new Error(`Garrafa não encontrada: ${id}`)
+  if (bottle.current_stage !== 'inserted') return null
+  if (!bottle.utxo_hash || bottle.utxo_index === null) return null
 
-  const fillPercent = (container.current_volume_liters / container.capacity_liters) * 100
-  if (fillPercent < 90) {
-    throw new Error(
-      `Container precisa estar pelo menos 90% cheio para compactar. Atual: ${fillPercent.toFixed(1)}%`,
-    )
-  }
+  const user = await usersDb.findById(bottle.user_id)
+  if (!user) throw new Error(`Usuário da garrafa não encontrado: ${bottle.user_id}`)
 
-  const bottles = await bottlesDb.findByContainerIdAndStage(id, 'inserted')
-  if (bottles.length === 0) {
-    throw new Error('Nenhuma garrafa inserida encontrada neste container')
-  }
+  const txHash = await cardano.advanceStage({
+    bottleId: bottle.bottle_id_text,
+    targetStage: 'compacted',
+    userAddr: user.wallet_address,
+    utxoHash: bottle.utxo_hash,
+    utxoIndex: bottle.utxo_index,
+  })
 
-  // Verifica se todas as garrafas tem UTxO confirmado on-chain
-  const readyBottles = bottles.filter(b => b.utxo_hash && b.utxo_index !== null)
-  if (readyBottles.length < bottles.length) {
-    const pending = bottles.length - readyBottles.length
-    throw new Error(
-      `${pending} garrafa(s) aguardando confirmação on-chain... Tente novamente em alguns segundos.`,
-    )
-  }
+  await txsDb.create({
+    bottle_id: bottle.id,
+    stage: 'compacted',
+    tx_hash: txHash,
+  })
 
-  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
-  if (operatorUtxos.length === 0) {
-    throw new Error('Nenhum UTxO do operador disponível para submeter transações')
-  }
+  // UTxO antigo foi consumido pela tx; novo UTxO sera preenchido apos confirmacao.
+  await bottlesDb.clearUtxo(bottle.id)
 
-  // Submete tx de avanco para cada garrafa
-  const results: { bottleId: string; txHash: string }[] = []
-  for (let i = 0; i < readyBottles.length; i++) {
-    const bottle = readyBottles[i]
-    if (i >= operatorUtxos.length) {
-      console.warn(`[compact] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
-      break
-    }
-
-    const user = await usersDb.findById(bottle.user_id)
-    if (!user) continue
-
-    try {
-      const txHash = await cardano.advanceStage({
-        bottleId: bottle.bottle_id_text,
-        targetStage: 'compacted',
-        userAddr: user.wallet_address,
-        utxoHash: bottle.utxo_hash!,
-        utxoIndex: bottle.utxo_index!,
-        operatorTxIn: operatorUtxos[i].txIn,
-      })
-
-      await txsDb.create({
-        bottle_id: bottle.id,
-        stage: 'compacted',
-        tx_hash: txHash,
-      })
-
-      await bottlesDb.clearUtxo(bottle.id)
-      results.push({ bottleId: bottle.id, txHash })
-    } catch (err) {
-      console.error(`[compact] Erro ao avançar garrafa ${bottle.id}:`, err)
-    }
-  }
-
-  // Atualiza estágio apenas para garrafas com tx submetida com sucesso
-  const successIds = results.map(r => r.bottleId)
-  const count = await bottlesDb.compactByIds(successIds)
-
-  // Marca container como compactado (pronto para coleta)
-  if (count > 0) {
-    await containersDb.updateStatus(id, 'compacted')
-  }
-
-  return { containerId: id, compacted: count, txs: results }
+  return { bottleId: bottle.id, txHash }
 }
 
 /**
@@ -184,11 +137,11 @@ export async function collectContainer(containerId: string, routeId: string) {
   const route = await routesDb.findById(rId)
   if (!route) throw new Error(`Rota não encontrada: ${rId}`)
 
-  // Verifica se todas as garrafas do container estao compactadas
+  // Verifica se todas as garrafas do container ja foram compactadas automaticamente
   const insertedBottles = await bottlesDb.findByContainerIdAndStage(cId, 'inserted')
   if (insertedBottles.length > 0) {
     throw new Error(
-      `Container ainda tem ${insertedBottles.length} garrafa(s) não compactada(s). Compacte antes de coletar.`,
+      `Container ainda tem ${insertedBottles.length} garrafa(s) aguardando compactação automática. Tente novamente em alguns segundos.`,
     )
   }
 

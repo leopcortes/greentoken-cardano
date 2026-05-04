@@ -22,8 +22,8 @@ CREATE TABLE containers (
   longitude             FLOAT,
   capacity_liters       NUMERIC(10,2) NOT NULL,
   current_volume_liters NUMERIC(10,2) NOT NULL DEFAULT 0,
-  status                VARCHAR(20)  NOT NULL DEFAULT 'active'
-                          CHECK (status IN ('active', 'full', 'compacted', 'in_route', 'maintenance')),
+  status                VARCHAR(30)  NOT NULL DEFAULT 'active'
+                          CHECK (status IN ('active', 'ready_for_collection', 'in_route', 'maintenance')),
   last_updated          TIMESTAMP    NOT NULL DEFAULT NOW(),
   UNIQUE (owner_id, name)
 );
@@ -61,7 +61,7 @@ CREATE TABLE routes (
 );
 
 -- um container por parada
--- Container só entra na rota quando status = 'full'
+-- Container só entra na rota quando status = 'ready_for_collection'
 CREATE TABLE route_stops (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id     UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
@@ -158,7 +158,7 @@ CREATE INDEX idx_bottles_route_id      ON bottles(route_id);
 -- Buscar garrafas por estacao de tratamento
 CREATE INDEX idx_bottles_station_id    ON bottles(station_id);
 
--- Buscar containers por status (detectar containers 'full')
+-- Buscar containers por status (detectar containers 'ready_for_collection')
 CREATE INDEX idx_containers_status     ON containers(status);
 
 -- Buscar paradas pendentes de uma rota

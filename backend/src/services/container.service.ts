@@ -1,10 +1,9 @@
 import * as containersDb from '../db/queries/containers'
-import * as bottleService from './bottle.service'
 import { validateUUID } from '../validate'
 
 /**
  * Registra volume depositado em um container.
- * Se o volume atingir a capacidade, marca como 'full'.
+ * Se atingir 90% da capacidade, marca como 'ready_for_collection' (pronto para coleta).
  */
 export async function addVolume(containerId: string, liters: number) {
   const id = validateUUID(containerId)
@@ -20,21 +19,13 @@ export async function addVolume(containerId: string, liters: number) {
 
   const updated = await containersDb.updateVolume(id, newVolume)
 
-  // Marca como 'full' se atingiu a capacidade
-  if (newVolume >= container.capacity_liters && container.status === 'active') {
-    await containersDb.updateStatus(id, 'full')
-    return { ...updated, status: 'full' }
+  const fillPercent = (newVolume / container.capacity_liters) * 100
+  if (fillPercent >= 90 && container.status === 'active') {
+    await containersDb.updateStatus(id, 'ready_for_collection')
+    return { ...updated, status: 'ready_for_collection' }
   }
 
   return updated
-}
-
-/**
- * Compacta todas as garrafas inserted de um container.
- * Container precisa estar >= 90% cheio.
- */
-export async function compact(containerId: string) {
-  return bottleService.compactContainer(containerId)
 }
 
 /**
@@ -47,8 +38,8 @@ export async function markCollected(containerId: string) {
 }
 
 /**
- * Lista containers cheios prontos para rota.
+ * Lista containers prontos para rota (90%+ cheios).
  */
-export async function listFull() {
-  return containersDb.findByStatus('full')
+export async function listReadyForCollection() {
+  return containersDb.findByStatus('ready_for_collection')
 }

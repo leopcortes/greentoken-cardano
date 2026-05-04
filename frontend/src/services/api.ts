@@ -171,11 +171,6 @@ export const createContainer = (data: {
 }) =>
   request<Container>('/containers', { method: 'POST', body: JSON.stringify(data) });
 
-export const compactContainer = (id: string) =>
-  request<{ message: string; containerId: string; compacted: number }>(
-    `/containers/${id}/compact`, { method: 'POST' }
-  );
-
 // --- Trucks ---
 
 export const getTrucks = () =>

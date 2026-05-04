@@ -54,7 +54,7 @@ router.post('/stops/:stopId/collect', async (req: Request, res: Response) => {
       ...result,
     })
   } catch (err: any) {
-    if (err.message.includes('nao compactada')) {
+    if (err.message.includes('aguardando compactação')) {
       return res.status(400).json({ error: err.message })
     }
     res.status(500).json({ error: err.message })
