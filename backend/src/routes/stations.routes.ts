@@ -36,6 +36,9 @@ router.post('/', async (req: Request, res: Response) => {
     const station = await stationsDb.create({ name, location_name, latitude, longitude })
     res.status(201).json(station)
   } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ error: 'Ja existe uma estacao com esse nome neste local' })
+    }
     res.status(500).json({ error: err.message })
   }
 })

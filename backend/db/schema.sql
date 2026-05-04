@@ -24,7 +24,8 @@ CREATE TABLE containers (
   current_volume_liters NUMERIC(10,2) NOT NULL DEFAULT 0,
   status                VARCHAR(20)  NOT NULL DEFAULT 'active'
                           CHECK (status IN ('active', 'full', 'compacted', 'in_route', 'maintenance')),
-  last_updated          TIMESTAMP    NOT NULL DEFAULT NOW()
+  last_updated          TIMESTAMP    NOT NULL DEFAULT NOW(),
+  UNIQUE (owner_id, name)
 );
 
 -- Caminhoes
@@ -43,7 +44,8 @@ CREATE TABLE stations (
   location_name VARCHAR(255),
   latitude      FLOAT,
   longitude     FLOAT,
-  created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+  created_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
+  UNIQUE (name, location_name)
 );
 
 -- Cada rota representa uma saida de um caminhao
@@ -172,7 +174,8 @@ VALUES (
   'owner@greentoken.io',
   'addr_test1vzrpfw7aqpsfxdtx2f7t5jjmqwkp09suf0quql3qgw39xfs7qhqx2',
   '8614bbdd0060933566527cba4a5b03ac17961c4bc1c07e2043a25326'
-);
+)
+ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
 VALUES (
@@ -181,7 +184,8 @@ VALUES (
   'leo.13.cortes@gmail.com',
   'addr_test1qq22tnn379fzry3wrsnxdanucmd47vlempk9326fj0txy60pf7akm2qqn2vlurcde97kw0kvwe438uzmha9c3tmfdm9qj3z74t',
   '14a5ce71f15221922e1c2666f67cc6db5f33f9d86c58ab4993d66269'
-);
+)
+ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
 VALUES (
@@ -190,7 +194,8 @@ VALUES (
   'leo.pereira.cortes@gmail.com',
   'addr_test1qr35f3ukkfqhua4595870atp5uzanp2f899fj75z8gma7g5225d8dp9lzl8aqdnhdfq7ftcham4e3v3p90gqcchvam8s37vx77',
   'e344c796b2417e76b42d0fe7f561a705d98549394a997a823a37df22'
-);
+)
+ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
@@ -201,7 +206,8 @@ VALUES (
   -47.872549,
   10.00,
   'active'
-);
+)
+ON CONFLICT (owner_id, name) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
@@ -212,7 +218,8 @@ VALUES (
   -47.867377,
   5.00,
   'active'
-);
+)
+ON CONFLICT (owner_id, name) DO NOTHING;
 
 INSERT INTO stations (name, location_name, latitude, longitude)
 VALUES (
@@ -220,7 +227,8 @@ VALUES (
   'Lago Norte, Brasília',
   -15.714127,
   -47.874617
-);
+)
+ON CONFLICT (name, location_name) DO NOTHING;
 
 INSERT INTO stations (name, location_name, latitude, longitude)
 VALUES (
@@ -228,22 +236,26 @@ VALUES (
   'Zona Industrial, Brasília',
   -15.793054,
   -47.967047
-);
+)
+ON CONFLICT (name, location_name) DO NOTHING;
 
 INSERT INTO trucks (license_plate, status)
 VALUES (
   'PBX-6480',
   'available'
-);
+)
+ON CONFLICT (license_plate) DO NOTHING;
 
 INSERT INTO trucks (license_plate, status)
 VALUES (
   'XYZ-9876',
   'available'
-);
+)
+ON CONFLICT (license_plate) DO NOTHING;
 
 INSERT INTO trucks (license_plate, status)
 VALUES (
   'ABC-1234',
   'available'
-);
+)
+ON CONFLICT (license_plate) DO NOTHING;

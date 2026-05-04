@@ -50,6 +50,9 @@ router.post('/', async (req: Request, res: Response) => {
     })
     res.status(201).json(container)
   } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ error: 'Ja existe um container com esse nome para este owner' })
+    }
     res.status(500).json({ error: err.message })
   }
 })
