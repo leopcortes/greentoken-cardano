@@ -54,3 +54,4 @@ node-ipc/
 .vscode/
 .history/
 .claude/
+.DS_Store
