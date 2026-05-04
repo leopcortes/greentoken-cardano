@@ -1,10 +1,17 @@
-# Haskell / Cabal
+# Artefatos antigos mantidos apenas como backup
+DEPRECATED_*
+DEPRECATED_*/
+
+# Build artifacts antigos
 dist-newstyle/
-cabal.project.local
 .stack-work/
 .cache/
 *.hi
 *.o
+
+# Build Aiken
+aiken/build/
+aiken/plutus.json
 
 # Node.js
 node_modules/

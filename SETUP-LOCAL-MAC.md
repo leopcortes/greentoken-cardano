@@ -484,15 +484,15 @@ O sistema usa dois tipos de wallet: a **wallet do operador (owner)** que financi
 >
 > Por isso, **pule os passos 9.5, 9.6 e 9.7** - os usuários e demais dados já foram criados pelo seed.
 >
-> **Não execute** `scripts/setup-wallet.sh` (9.2) nem `scripts/setup-policy.sh` (9.8). Recriar as chaves geraria um endereço de wallet e um `policyID` diferentes, tornando os tokens e UTXOs existentes na blockchain inacessíveis.
+> **Não execute** `scripts/setup-wallet.sh` (9.2). Recriar as chaves geraria um endereço de wallet diferente, tornando os UTXOs existentes inacessíveis.
 >
 > Em vez disso, **copie manualmente** do dispositivo original os arquivos abaixo (excluídos do repositório por segurança):
 > ```
 > assets/wallet/payment.skey
 > assets/wallet/payment.vkey
-> assets/policy/policy.skey
-> assets/policy/policy.vkey
 > ```
+>
+> Depois compile os contratos com `scripts/build-contracts.sh` (passo 9.8) - ele apenas regenera artefatos derivados (.plutus, endereço do script, policyID) e não afeta UTXOs existentes desde que o código dos contratos não tenha mudado.
 >
 > Se não tiver acesso, solicite ao dono do repositório.
 >
@@ -518,9 +518,9 @@ A wallet do operador é usada para assinar e financiar **todas** as transações
 scripts/setup-wallet.sh
 ```
 
-Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`, `bottle.addr`
+Gera: `assets/wallet/payment.vkey`, `payment.skey`, `payment.addr`
 
-Anote o endereço exibido ao final (`payment.addr`), ele será usado no próximo passo para receber tADA e, depois, para criar o usuário owner no frontend.
+Anote o endereço exibido ao final (`payment.addr`), ele será usado no próximo passo para receber tADA e, depois, para criar o usuário owner no frontend. O endereço do script Plutus (`bottle.addr`) é gerado em separado pelo passo 9.8.
 
 ### 9.3 Financiar a wallet do operador com tADA
 
@@ -609,15 +609,30 @@ Com o endereço da wallet do reciclador em mãos:
    scripts/get-pubkey-hash.sh <ENDERECO_DO_RECYCLER>
    ```
 
-### 9.8 Gerar chaves da minting policy
+### 9.8 Compilar os contratos Aiken
+
+A camada blockchain usa dois scripts Plutus: o validador da garrafa (`bottle-validator.plutus`) e a minting policy do GreenToken (`greentoken-policy.plutus`). Ambos são compilados a partir do projeto Aiken em `aiken/`.
+
+Pré-requisito: instalar o compilador Aiken.
 
 ```bash
-scripts/setup-policy.sh
+brew install aiken-lang/tap/aiken
+aiken --version
 ```
 
-Gera: `assets/policy/policy.vkey`, `policy.skey`, `policy.script`, `policyID`
+Compile os contratos e exporte os artefatos consumidos pelo backend e pelo `cardano-cli`:
 
-> **ATENÇÃO:** Se você regenerar as chaves, o `policyID` muda e tokens antigos ficam incompatíveis. Guarde as chaves com segurança.
+```bash
+scripts/build-contracts.sh
+```
+
+Gera:
+- `assets/bottle-validator.plutus` - validador Plutus V3 da garrafa
+- `assets/greentoken-policy.plutus` - minting policy Plutus V3 (parametrizada pelo hash do validador)
+- `assets/wallet/bottle.addr` - endereço do script onde as garrafas ficam bloqueadas
+- `assets/policy/policyID` - policy ID do GreenToken
+
+> **ATENÇÃO:** alterar o código dos contratos muda os hashes resultantes. O endereço do script e o `policyID` mudam junto, o que torna UTXOs e tokens criados pela versão anterior incompatíveis com a nova. Para preservar histórico em testes, mantenha o código congelado entre execuções de teste.
 
 ---
 

@@ -184,34 +184,32 @@ export async function createBottle(params: {
   const policyId = await readPolicyId()
   const tokHex = tokenHex()
   const datumFile = path.join(paths.datumDir, bottleId, `datum-${bottleId}-inserted.json`)
+  const mintRedeemerFile = path.join(paths.redeemerDir, 'mint-inserted.json')
 
-  // Busca UTxO do operador (min 5 ADA)
   const { txIn } = await findOperatorUtxo(5_000_000)
 
-  // Caminhos dos arquivos de tx
   await fs.mkdir(paths.txDir, { recursive: true })
   const bodyFile = path.join(paths.txDir, `mint-bottle-${bottleId}.body`)
   const signedFile = path.join(paths.txDir, `mint-bottle-${bottleId}.signed`)
 
-  // Build
   await cli('conway', 'transaction', 'build',
     '--testnet-magic', config.CARDANO_NODE_MAGIC,
     '--socket-path', config.CARDANO_NODE_SOCKET_PATH,
     '--tx-in', txIn,
+    '--tx-in-collateral', txIn,
     '--tx-out', `${scriptAddr}+2000000`,
-    '--tx-out-datum-hash-file', datumFile,
+    '--tx-out-inline-datum-file', datumFile,
     '--tx-out', `${userAddr}+2000000 + 10 ${policyId}.${tokHex}`,
     '--change-address', operatorAddr,
     '--mint', `10 ${policyId}.${tokHex}`,
-    '--minting-script-file', paths.policyScript,
+    '--mint-script-file', paths.policyPlutus,
+    '--mint-redeemer-file', mintRedeemerFile,
     '--out-file', bodyFile,
   )
 
-  // Sign
   await cli('conway', 'transaction', 'sign',
     '--tx-body-file', bodyFile,
     '--signing-key-file', paths.operatorSkey,
-    '--signing-key-file', paths.policySkey,
     '--testnet-magic', config.CARDANO_NODE_MAGIC,
     '--out-file', signedFile,
   )
@@ -255,16 +253,14 @@ export async function advanceStage(params: {
   const tokHex = tokenHex()
   const rewardAmount = REWARDS_BY_STAGE[targetStage]
 
-  const datumIn = path.join(paths.datumDir, bottleId, `datum-${bottleId}-${sourceStage}.json`)
   const datumOut = path.join(paths.datumDir, bottleId, `datum-${bottleId}-${targetStage}.json`)
   const redeemerFile = path.join(paths.redeemerDir, `redeemer-${sourceStage}-to-${targetStage}.json`)
+  const mintRedeemerFile = path.join(paths.redeemerDir, `mint-${targetStage}.json`)
 
-  // Verifica que os arquivos existem
-  await fs.access(datumIn)
   await fs.access(datumOut)
   await fs.access(redeemerFile)
+  await fs.access(mintRedeemerFile)
 
-  // Usa UTxO do operador fornecido ou busca um (min 4 ADA)
   const collateralTxIn = params.operatorTxIn ?? (await findOperatorUtxo(4_000_000)).txIn
   const bottleTxIn = `${utxoHash}#${utxoIndex}`
 
@@ -272,30 +268,28 @@ export async function advanceStage(params: {
   const bodyFile = path.join(paths.txDir, `tx-advance-${bottleId}-${targetStage}.body`)
   const signedFile = path.join(paths.txDir, `tx-advance-${bottleId}-${targetStage}.signed`)
 
-  // Build
   await cli('conway', 'transaction', 'build',
     '--testnet-magic', config.CARDANO_NODE_MAGIC,
     '--socket-path', config.CARDANO_NODE_SOCKET_PATH,
     '--tx-in', bottleTxIn,
     '--tx-in-script-file', paths.scriptFile,
-    '--tx-in-datum-file', datumIn,
+    '--tx-in-inline-datum-present',
     '--tx-in-redeemer-file', redeemerFile,
     '--tx-in', collateralTxIn,
     '--tx-in-collateral', collateralTxIn,
     '--tx-out', `${scriptAddr}+2000000`,
-    '--tx-out-datum-hash-file', datumOut,
+    '--tx-out-inline-datum-file', datumOut,
     '--tx-out', `${userAddr}+2000000 + ${rewardAmount} ${policyId}.${tokHex}`,
     '--change-address', operatorAddr,
     '--mint', `${rewardAmount} ${policyId}.${tokHex}`,
-    '--minting-script-file', paths.policyScript,
+    '--mint-script-file', paths.policyPlutus,
+    '--mint-redeemer-file', mintRedeemerFile,
     '--out-file', bodyFile,
   )
 
-  // Sign
   await cli('conway', 'transaction', 'sign',
     '--tx-body-file', bodyFile,
     '--signing-key-file', paths.operatorSkey,
-    '--signing-key-file', paths.policySkey,
     '--testnet-magic', config.CARDANO_NODE_MAGIC,
     '--out-file', signedFile,
   )

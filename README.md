@@ -1,6 +1,6 @@
 # Greentoken Cardano
 
-Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usando smart contracts Plutus V2. Cada garrafa passa por 5 estágios (`inserted -> compacted -> collected -> atstation -> shredded`), e o reciclador recebe **tokens Greentoken** como recompensa a cada transição.
+Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usando smart contracts Plutus V3 escritos em Aiken. Cada garrafa passa por 5 estágios (`inserted -> compacted -> collected -> atstation -> shredded`), e o reciclador recebe **tokens Greentoken** como recompensa a cada transição.
 
 ### Recompensas por estágio
 
@@ -19,7 +19,7 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 
 | Camada | Tecnologia | Descrição |
 |--------|-----------|-----------|
-| **On-chain** | Haskell / Plutus V2 | Smart contract que valida transições de estágio |
+| **On-chain** | Aiken / Plutus V3 | Validador da garrafa e minting policy do GreenToken |
 | **Off-chain** | Bash + cardano-cli | Scripts para operar diretamente na blockchain |
 | **Backend** | Node.js + TypeScript + PostgreSQL | API REST que integra blockchain e banco de dados |
 | **Frontend** | React + TypeScript + Vite + TailwindCSS | Dashboard web para gerenciar o sistema |
@@ -37,42 +37,47 @@ Cada operação no sistema segue o mesmo padrão assíncrono: o backend submete 
 | **Bottle Service** | `backend/src/services/bottle.service.ts` | Orquestra blockchain + banco de dados |
 | **Cardano Service** | `backend/src/services/cardano.service.ts` | Wrapper do `cardano-cli` - única camada que toca a blockchain |
 | **Confirmation Worker** | `backend/src/workers/confirmation.worker.ts` | Detecta UTxOs confirmados e atualiza o banco |
-| **Smart Contract** | `onchain/src/Greentoken/BottleValidator.hs` | Validador Plutus V2 compilado em `assets/bottle-validator.plutus` |
+| **Validador da garrafa** | `aiken/validators/bottle.ak` | Smart contract Plutus V3 compilado em `assets/bottle-validator.plutus` |
+| **Minting policy** | `aiken/validators/greentoken.ak` | Política de cunhagem Plutus V3 parametrizada pelo hash do validador, compilada em `assets/greentoken-policy.plutus` |
 
 #### Detalhe do Cardano Service
 
 O `cardano.service.ts` chama o `cardano-cli` diretamente para cada operação:
 
-**Criar garrafa** - minta NFT + tokens iniciais:
+**Criar garrafa** - cria UTxO bloqueado no script + mint inicial:
 ```
-1. queryUtxosJson(operatorAddr)    → localiza UTxO do operador com ≥5 ADA
-2. cardano-cli transaction build   → constrói tx: UTxO no script com datum {owner, bottleId, stage=inserted} + mint 10 Greentoken para o reciclador
-3. cardano-cli transaction sign    → assina com operatorSkey + policySkey
+1. queryUtxosJson(operatorAddr)    → localiza UTxO do operador com ≥5 ADA (usado também como collateral)
+2. cardano-cli transaction build   → constrói tx: UTxO no script com inline datum {owner, bottleId, stage=inserted} + mint 10 Greentoken para o reciclador (com mint redeemer MintFor(Inserted))
+3. cardano-cli transaction sign    → assina com operatorSkey
 4. cardano-cli transaction submit  → envia ao nó Cardano (testnet)
 5. retorna txHash imediatamente
 ```
 
 **Avançar estágio** - consome UTxO antigo e cria novo:
 ```
-1. Usa o utxo_hash + utxo_index da garrafa como tx-in no endereço do script
-2. Executa o validador Plutus (redeemer com a transição desejada)
-3. Cria novo UTxO no script com datum atualizado (ex: stage=compacted)
-4. Minta tokens de recompensa para o reciclador
+1. Usa o utxo_hash + utxo_index da garrafa como tx-in no endereço do script (inline datum lido da própria UTxO)
+2. Executa o validador Plutus (redeemer AdvanceTo(target))
+3. Cria novo UTxO no script com inline datum atualizado (ex: stage=compacted)
+4. Minta tokens de recompensa via minting policy Plutus, com mint redeemer MintFor(target)
 ```
 
-#### Smart Contract (Plutus V2)
+#### Smart Contract (Plutus V3)
 
-O validador on-chain aceita apenas transições válidas:
+O validador on-chain aceita apenas transições sequenciais e exige continuidade do datum (mesmo `owner` e `bottleId` na saída):
 
-```haskell
-validTransition Inserted  Compacted = True
-validTransition Compacted Collected = True
-validTransition Collected AtStation = True
-validTransition AtStation Shredded  = True
-validTransition _         _         = False
+```aiken
+pub fn valid_transition(from: Stage, to: Stage) -> Bool {
+  when from is {
+    Inserted -> when to is { Compacted -> True; _ -> False }
+    Compacted -> when to is { Collected -> True; _ -> False }
+    Collected -> when to is { AtStation -> True; _ -> False }
+    AtStation -> when to is { Shredded -> True; _ -> False }
+    Shredded -> False
+  }
+}
 ```
 
-Se a transição for inválida, a transação é rejeitada pela rede Cardano.
+A minting policy é parametrizada pelo hash do validador da garrafa e exige que cada cunhagem esteja acompanhada de uma saída ao endereço do script com o estágio correspondente, e que a quantidade emitida seja exatamente igual à recompensa daquele estágio. Se qualquer condição falhar, a transação é rejeitada pela rede Cardano.
 
 #### Confirmation Worker
 
@@ -103,18 +108,17 @@ Cada transação é submetida via `cardano-cli`, assinada pelo operador + policy
 
 ```
 greentoken-cardano/
-|-- onchain/src/Greentoken/
-|   |-- BottleValidator.hs            # Smart contract Plutus V2
-|-- offchain/test/Greentoken/
-|   |-- BottleValidatorSpec.hs        # Testes do validador
-|-- app/
-|   |-- Main.hs                       # CLI para exportar o contrato
-|   |-- WriteBottleValidator.hs       # Serialização do script
+|-- aiken/
+|   |-- aiken.toml                    # Manifest Aiken (Plutus V3, stdlib v3.1.0)
+|   |-- lib/greentoken/types.ak       # Tipos compartilhados (Stage, BottleDatum, BottleAction, MintAction)
+|   |-- validators/bottle.ak          # Validador Plutus V3 da garrafa + testes inline
+|   |-- validators/greentoken.ak      # Minting policy Plutus V3 do GreenToken
 |-- assets/
-|   |-- bottle-validator.plutus       # Contrato compilado
-|   |-- policy/                       # Minting policy (policyID, script, chaves)
-|   |-- redeemers/                    # Redeemers para cada transição de estágio
-|   |-- wallet/                       # Endereço do operador e do script Plutus
+|   |-- bottle-validator.plutus       # Validador da garrafa compilado (gerado por scripts/build-contracts.sh)
+|   |-- greentoken-policy.plutus      # Minting policy compilada (gerada por scripts/build-contracts.sh)
+|   |-- policy/policyID               # Policy ID do GreenToken (gerado por scripts/build-contracts.sh)
+|   |-- redeemers/                    # Redeemers para o validador (advance) e para a minting policy (mint-<stage>)
+|   |-- wallet/                       # Endereço do operador (payment.addr) e do script (bottle.addr)
 |   |-- users/                        # Endereços e chaves dos usuários
 |-- frontend/
 |   |-- src/
@@ -140,14 +144,14 @@ greentoken-cardano/
 |   |-- tsconfig.json
 |-- scripts/
 |   |-- _db-helper.sh                 # Helper: integração scripts <-> PostgreSQL
-|   |-- setup-wallet.sh               # Setup: chaves do operador + endereço do script
-|   |-- setup-policy.sh               # Setup: minting policy + policyID
+|   |-- build-contracts.sh            # Compila os contratos Aiken e exporta .plutus, bottle.addr e policyID
+|   |-- setup-wallet.sh               # Setup: chaves do operador
+|   |-- setup-policy.sh               # Compatibilidade: redireciona para build-contracts.sh
 |   |-- split-utxos.sh                # Fragmenta UTXO do operador para operações batch
 |   |-- query-balance.sh              # Consulta saldo de qualquer endereço
 |   |-- get-pubkey-hash.sh            # Helper: gerar pubkey hash a partir do addr da wallet
-|-- SETUP-LOCAL.md                    # Guia completo de configuração local
-|-- plutus-greentoken.cabal           # Configuração Haskell
-|-- cabal.project                     # Dependências Haskell
+|-- SETUP-LOCAL-MAC.md / SETUP-LOCAL-LINUX.md   # Guias completos de configuração local
+|-- SETUP-CARDANO-LOCAL.md            # Guia de instalação do cardano-node
 ```
 
 ---
@@ -158,8 +162,8 @@ greentoken-cardano/
 
 | Script | Função | Uso |
 |--------|--------|-----|
-| `setup-wallet.sh` | Gera chaves do operador e endereço do script | `scripts/setup-wallet.sh` |
-| `setup-policy.sh` | Gera minting policy e policyID | `scripts/setup-policy.sh` |
+| `setup-wallet.sh` | Gera chaves do operador (`payment.{vkey,skey,addr}`) | `scripts/setup-wallet.sh` |
+| `build-contracts.sh` | Compila os contratos Aiken e exporta `.plutus`, `bottle.addr` e `policyID` | `scripts/build-contracts.sh` |
 
 ### Operação
 
@@ -233,11 +237,11 @@ Consulte o [SETUP-LOCAL.md](SETUP-LOCAL.md) para o guia completo. Resumo rápido
 sudo -u postgres psql -c "CREATE DATABASE greentoken_db;"
 psql -U postgres -d greentoken_db -f backend/db/schema.sql
 
-# 2. Gerar chaves do operador (wallet owner)
+# 2. Gerar chaves do operador (wallet owner) e compilar os contratos
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
 export CARDANO_NODE_MAGIC=1
 scripts/setup-wallet.sh
-scripts/setup-policy.sh
+scripts/build-contracts.sh
 
 # 3. Financiar wallet do operador com tADA (via faucet testnet Preprod)
 cat assets/wallet/payment.addr
