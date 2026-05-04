@@ -30,7 +30,9 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find(o => o.value === value);
@@ -41,9 +43,14 @@ export function SearchableSelect({
   });
 
   useEffect(() => {
-    if (open && inputRef.current) {
-      inputRef.current.focus();
+    if (!open) return;
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const estimatedHeight = 320;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUp(spaceBelow < estimatedHeight && rect.top > spaceBelow);
     }
+    inputRef.current?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -60,6 +67,7 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
@@ -75,7 +83,12 @@ export function SearchableSelect({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
+        <div
+          className={cn(
+            'absolute z-50 w-full rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+            openUp ? 'bottom-full mb-1' : 'top-full mt-1',
+          )}
+        >
           <div className="flex items-center border-b px-3 py-2">
             <Search className="h-4 w-4 text-muted-foreground mr-2 shrink-0" />
             <input

@@ -213,7 +213,7 @@ export function BottlesPage() {
                 {blockchainBusy ? 'Aguardando blockchain...' : '+ Nova Garrafa'}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="overflow-visible">
               <DialogHeader>
                 <DialogTitle>Criar Garrafa</DialogTitle>
               </DialogHeader>

@@ -172,7 +172,7 @@ export function ContainersPage() {
             <DialogTrigger asChild>
               <Button size="sm" onClick={openCreateDialog}>+ Novo Container</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="overflow-visible">
               <DialogHeader>
                 <DialogTitle>Criar Container</DialogTitle>
               </DialogHeader>
