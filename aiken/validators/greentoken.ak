@@ -1,5 +1,5 @@
 use aiken/collection/list
-use cardano/address.{Credential, Script}
+use cardano/address.{Script}
 use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{InlineDatum, Output, Transaction}
 use greentoken/types.{BottleDatum, MintAction, MintFor, stage_reward}
