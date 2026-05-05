@@ -24,6 +24,55 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
+
+    /* base — warm off-white */
+    --bg: #f7f6f1;
+    --bg-elev: #fdfcf8;
+    --bg-card: #ffffff;
+    --ink: #0e1410;
+    --ink-2: #2a3530;
+    --ink-3: #5e6b64;
+    --ink-4: #8a958e;
+    --line: #e6e3d8;
+    --line-2: #efece2;
+
+    /* greentoken — protagonist */
+    --gt-50:  #f0fdf4;
+    --gt-100: #dcfce7;
+    --gt-200: #bbf7d0;
+    --gt-300: #86efac;
+    --gt-400: #4ade80;
+    --gt-500: #22c55e;
+    --gt-600: #16a34a; 
+    --gt-700: #15803d;
+    --gt-800: #166534;
+    --gt-900: #14532d;
+
+    /* cardano accent */
+    --cdn: #0033ad;
+    --cdn-soft: #e6ecfa;
+
+    /* status */
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --err:  #b91c1c;
+    --err-soft: #fee2e2;
+
+    /* fonts */
+    --font-sans: 'Geist', 'Inter', -apple-system, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+    /* shadows */
+    --sh-1: 0 1px 0 rgba(14,20,16,.04), 0 1px 2px rgba(14,20,16,.04);
+    --sh-2: 0 1px 0 rgba(14,20,16,.04), 0 4px 12px rgba(14,20,16,.06);
+    --sh-3: 0 2px 0 rgba(14,20,16,.04), 0 12px 32px rgba(14,20,16,.10);
+    --sh-pop: 0 18px 50px -12px rgba(22,163,74,.35), 0 6px 18px rgba(14,20,16,.08);
+
+    /* radius */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 22px;
   }
 
   .dark {
@@ -47,13 +96,118 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 142.1 76.2% 36.3%;
   }
+
+  /* DARK MODE TOKENS */
+  .gt-dark {
+    --bg: #0a0f0c;
+    --bg-elev: #111815;
+    --bg-card: #141c19;
+    --ink: #e8efe9;
+    --ink-2: #c5d0c8;
+    --ink-3: #8a978f;
+    --ink-4: #5e6b62;
+    --line: #1f2925;
+    --line-2: #1a2320;
+    --sh-1: 0 1px 0 rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.4);
+    --sh-2: 0 1px 0 rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.5);
+    --sh-3: 0 2px 0 rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.6);
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans m-0 antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  
+  button {
+    font-family: inherit;
+  }
 }
 
-@layer base {
+/* @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+  }
+} */
+
+@layer components {
+  /* SHARED PRIMITIVES */
+  .mono {
+    @apply font-mono;
+    font-feature-settings: 'ss01','ss02';
+  }
+
+  .gt-card {
+    @apply bg-bg-card border border-line rounded-lg shadow-1;
+  }
+
+  .gt-chip {
+    @apply inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-[11px] font-semibold tracking-[0.01em] border border-line bg-bg-elev text-ink-2;
+  }
+
+  .gt-chip--green {
+    @apply bg-gt-50 border-gt-200 text-gt-800;
+  }
+
+  .gt-chip--cdn {
+    @apply bg-cdn-soft border-[#cdd9f3] text-cdn;
+  }
+
+  .gt-chip--ghost {
+    @apply bg-transparent border-line text-ink-3;
+  }
+
+  .gt-pulse {
+    @apply relative w-2 h-2 rounded-full bg-gt-500;
+  }
+  .gt-pulse::after {
+    @apply content-[''] absolute -inset-[3px] rounded-full border-2 border-gt-500 opacity-60 animate-gt-ping;
+  }
+
+  .gt-eyebrow {
+    @apply text-[10px] tracking-[0.14em] uppercase text-ink-4 font-semibold;
+  }
+}
+
+@layer utilities {
+  /* UTILITIES */
+  .gt-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .gt-no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .gt-always-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
+  }
+  .gt-always-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    -webkit-appearance: none;
+  }
+  .gt-always-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .gt-always-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.5);
+    border-radius: 3px;
+  }
+  .gt-always-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.7);
+  }
+
+  .gt-grab {
+    @apply cursor-grab active:cursor-grabbing;
+  }
+
+  .gt-focusable:focus-visible {
+    @apply outline-2 outline-gt-500 outline-offset-2;
+  }
+
+  body.gt-dragging {
+    @apply select-none !cursor-grabbing;
   }
 }
