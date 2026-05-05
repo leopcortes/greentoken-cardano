@@ -1,0 +1,225 @@
+/* ============ GREENTOKEN INTERACTIVE — DESIGN TOKENS ============ */
+:root {
+  /* base — warm off-white */
+  --bg: #f7f6f1;
+  --bg-elev: #fdfcf8;
+  --bg-card: #ffffff;
+  --ink: #0e1410;
+  --ink-2: #2a3530;
+  --ink-3: #5e6b64;
+  --ink-4: #8a958e;
+  --line: #e6e3d8;
+  --line-2: #efece2;
+
+  /* greentoken — protagonist */
+  --gt-50:  #f0fdf4;
+  --gt-100: #dcfce7;
+  --gt-200: #bbf7d0;
+  --gt-300: #86efac;
+  --gt-400: #4ade80;
+  --gt-500: #22c55e;
+  --gt-600: #16a34a;  /* primary */
+  --gt-700: #15803d;
+  --gt-800: #166534;
+  --gt-900: #14532d;
+
+  /* cardano accent — used SPARINGLY for on-chain moments */
+  --cdn: #0033ad;
+  --cdn-soft: #e6ecfa;
+
+  /* status */
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --err:  #b91c1c;
+  --err-soft: #fee2e2;
+
+  /* fonts */
+  --font-sans: 'Geist', 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* shadows — soft, layered */
+  --sh-1: 0 1px 0 rgba(14,20,16,.04), 0 1px 2px rgba(14,20,16,.04);
+  --sh-2: 0 1px 0 rgba(14,20,16,.04), 0 4px 12px rgba(14,20,16,.06);
+  --sh-3: 0 2px 0 rgba(14,20,16,.04), 0 12px 32px rgba(14,20,16,.10);
+  --sh-pop: 0 18px 50px -12px rgba(22,163,74,.35), 0 6px 18px rgba(14,20,16,.08);
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 22px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { font-family: inherit; }
+
+.mono { font-family: var(--font-mono); font-feature-settings: 'ss01','ss02'; }
+
+/* ============ SHARED PRIMITIVES ============ */
+.gt-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+}
+
+.gt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--ink-2);
+}
+
+.gt-chip--green {
+  background: var(--gt-50);
+  border-color: var(--gt-200);
+  color: var(--gt-800);
+}
+
+.gt-chip--cdn {
+  background: var(--cdn-soft);
+  border-color: #cdd9f3;
+  color: var(--cdn);
+}
+
+.gt-chip--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+
+/* status dot pulse for "live" */
+.gt-pulse {
+  position: relative;
+  width: 8px; height: 8px;
+  border-radius: 999px;
+  background: var(--gt-500);
+}
+.gt-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid var(--gt-500);
+  opacity: 0.6;
+  animation: gt-ping 1.6s ease-out infinite;
+}
+@keyframes gt-ping {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* uppercase eyebrow label */
+.gt-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+
+/* hide scrollbars on overflow rows we want clean */
+.gt-no-scrollbar::-webkit-scrollbar { display: none; }
+.gt-no-scrollbar { scrollbar-width: none; }
+
+/* draggable cursor */
+.gt-grab { cursor: grab; }
+.gt-grab:active { cursor: grabbing; }
+
+/* drop zone glow when armed */
+@keyframes gt-drop-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  50% { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0.10); }
+}
+
+/* squash key for compaction */
+@keyframes gt-squash {
+  0%   { transform: translateY(0)   scaleY(1)   scaleX(1);    opacity: 1; }
+  35%  { transform: translateY(8px) scaleY(0.6) scaleX(1.15); opacity: 1; }
+  60%  { transform: translateY(14px) scaleY(0.25) scaleX(1.3); opacity: 0.9; }
+  100% { transform: translateY(20px) scaleY(0.05) scaleX(1.4); opacity: 0; }
+}
+
+/* coin float to wallet */
+@keyframes gt-coin-fly {
+  0%   { transform: translate(0,0) scale(0.7); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translate(var(--tx, -300px), var(--ty, -200px)) scale(1.05); opacity: 0; }
+}
+
+/* AI scan line */
+@keyframes gt-scan {
+  0%   { transform: translateY(-2%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(102%); opacity: 0; }
+}
+
+/* count-up subtle bump */
+@keyframes gt-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); color: var(--gt-600); }
+  100% { transform: scale(1); }
+}
+.gt-bump { animation: gt-bump 0.5s ease-out; }
+
+/* node pop on stage advance */
+@keyframes gt-node-pop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* gentle floating idle for inventory bottles */
+@keyframes gt-idle-float {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  50% { transform: translateY(-3px) rotate(var(--rot, 0deg)); }
+}
+
+/* reject shake for invalid items */
+@keyframes gt-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* ============ DARK MODE TOKENS (Variation 3) ============ */
+.gt-dark {
+  --bg: #0a0f0c;
+  --bg-elev: #111815;
+  --bg-card: #141c19;
+  --ink: #e8efe9;
+  --ink-2: #c5d0c8;
+  --ink-3: #8a978f;
+  --ink-4: #5e6b62;
+  --line: #1f2925;
+  --line-2: #1a2320;
+  --sh-1: 0 1px 0 rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.4);
+  --sh-2: 0 1px 0 rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.5);
+  --sh-3: 0 2px 0 rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.6);
+}
+
+/* utility: focus ring */
+.gt-focusable:focus-visible {
+  outline: 2px solid var(--gt-500);
+  outline-offset: 2px;
+}
+
+/* prevent body scroll while dragging */
+body.gt-dragging { user-select: none; cursor: grabbing !important; }
