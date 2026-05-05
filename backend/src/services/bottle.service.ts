@@ -116,10 +116,31 @@ export async function autoCompactBottle(bottleId: string) {
     tx_hash: txHash,
   })
 
+  // Reduz o volume em 60%, 70% ou 80% do volume original (sorteado).
+  // Ex.: 2000ml com redução de 60% -> 800ml.
+  const reductionOptions = [0.6, 0.7, 0.8]
+  const reduction = reductionOptions[Math.floor(Math.random() * reductionOptions.length)]
+  const compactedVolumeMl = bottle.volume_ml * (1 - reduction)
+  const deltaLiters = (bottle.volume_ml - compactedVolumeMl) / 1000
+
+  await bottlesDb.updateVolume(bottle.id, compactedVolumeMl)
+
+  if (bottle.container_id) {
+    const container = await containersDb.findById(bottle.container_id)
+    if (container) {
+      const newVolume = Math.max(0, container.current_volume_liters - deltaLiters)
+      await containersDb.updateVolume(bottle.container_id, newVolume)
+      const fillPercent = (newVolume / container.capacity_liters) * 100
+      if (fillPercent < 90 && container.status === 'ready_for_collection') {
+        await containersDb.updateStatus(bottle.container_id, 'active')
+      }
+    }
+  }
+
   // UTxO antigo foi consumido pela tx; novo UTxO sera preenchido apos confirmacao.
   await bottlesDb.clearUtxo(bottle.id)
 
-  return { bottleId: bottle.id, txHash }
+  return { bottleId: bottle.id, txHash, compactedVolumeMl, reduction }
 }
 
 /**

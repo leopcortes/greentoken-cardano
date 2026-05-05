@@ -202,6 +202,10 @@ export async function shredByIds(bottleIds: string[]): Promise<number> {
   return rowCount ?? 0
 }
 
+export async function updateVolume(id: string, volumeMl: number): Promise<void> {
+  await pool.query('UPDATE bottles SET volume_ml = $2 WHERE id = $1', [id, volumeMl])
+}
+
 export async function updateUtxo(id: string, utxoHash: string, utxoIndex: number): Promise<void> {
   await pool.query(
     'UPDATE bottles SET utxo_hash = $2, utxo_index = $3 WHERE id = $1',
