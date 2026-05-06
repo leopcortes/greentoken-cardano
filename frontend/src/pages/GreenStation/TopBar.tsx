@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useStation } from './StationContext';
 
 export function TopBar() {
-  const { bottlesProcessed } = useStation();
-
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -20,9 +17,6 @@ export function TopBar() {
       </div>
 
       <div className="flex gap-[10px] items-center">
-        <span className="gt-chip gt-chip--ghost">
-          <span className="mono">{bottlesProcessed}</span> hoje
-        </span>
         <span className="gt-chip gt-chip--cdn">Cardano · preprod</span>
         <Link
           to="/dashboard"

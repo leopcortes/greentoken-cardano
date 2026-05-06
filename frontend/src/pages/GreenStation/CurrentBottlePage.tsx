@@ -112,11 +112,17 @@ export function CurrentBottlePage() {
           borderColor: currentBottle ? (accepted ? 'var(--gt-200)' : '#fecaca') : 'var(--line)',
         }}
       >
-        <div className="flex-none flex items-center justify-center w-[70px] h-[90px]">
+        <div className="flex-none flex items-center justify-center w-[58px] h-[76px]">
           {currentBottle ? (
-            <Bottle size={currentBottle.size} tint={currentBottle.tint} kind={currentBottle.kind} invalid={currentBottle.invalid} />
+            <Bottle
+              size={currentBottle.size}
+              tint={currentBottle.tint}
+              kind={currentBottle.kind}
+              invalid={currentBottle.invalid}
+              style={{ transform: 'scale(0.82)', transformOrigin: 'center' }}
+            />
           ) : (
-            <div className="w-9 h-[70px] rounded-lg border-[1.5px] border-dashed border-line flex items-center justify-center text-ink-4 text-lg">
+            <div className="w-8 h-[60px] rounded-lg border-[1.5px] border-dashed border-line flex items-center justify-center text-ink-4 text-base">
               ?
             </div>
           )}
