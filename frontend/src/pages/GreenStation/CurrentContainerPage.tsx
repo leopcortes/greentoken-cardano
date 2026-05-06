@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,22 +22,14 @@ const STATUS_CHIP: Record<string, string> = {
 export function CurrentContainerPage() {
   const {
     binRef, dropArmed, lidOpen, scanning, reject, fillPct, crushed, activeStage,
-    setFillPct, setCrushed,
     containers, currentContainer, currentContainerId, setCurrentContainerId,
-    setContainers,
   } = useStation();
 
+  const pipelineBusy = activeStage >= 0;
   const collectReady = fillPct >= 90;
+  const readyForCollection = currentContainer?.status === 'ready_for_collection';
   const handleCollect = () => {
-    setFillPct(0);
-    setCrushed(0);
-    if (currentContainer) {
-      setContainers((list) =>
-        list.map((c) =>
-          c.id === currentContainer.id ? { ...c, current_volume_liters: 0 } : c,
-        ),
-      );
-    }
+    toast.warning('Essa função ainda não está disponível!');
   };
 
   const status = currentContainer?.status ?? 'maintenance';
@@ -73,6 +66,7 @@ export function CurrentContainerPage() {
           <Select
             value={currentContainerId ?? undefined}
             onValueChange={(v) => setCurrentContainerId(v)}
+            disabled={pipelineBusy}
           >
             <SelectTrigger className="h-8 w-[170px] text-[11px]">
               <SelectValue placeholder="Selecionar" />
@@ -155,6 +149,11 @@ export function CurrentContainerPage() {
             <span className="mono">{currentVolume.toFixed(2)} L / {capacity.toFixed(2)} L</span>
             <span>100%</span>
           </div>
+          {readyForCollection && (
+            <div className="mt-2 text-[10px] font-semibold text-warn">
+              Container cheio — aguardando coleta. Inserções pausadas.
+            </div>
+          )}
         </div>
         {collectReady && (
           <Button

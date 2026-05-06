@@ -5,7 +5,10 @@ import type {
   BottleTint,
   InventoryBottleData,
   StageInfo,
+  TxLogEntry,
 } from './types';
+import type { Reward } from '@/services/api';
+import { STAGE_LABELS } from '@/lib/labels';
 
 export const STAGES: StageInfo[] = [
   { id: 'inserted', label: 'Inserida', reward: 10 },
@@ -92,4 +95,21 @@ export function kindLabelOf(b: InventoryBottleData): string {
 export function materialLabelOf(b: InventoryBottleData): string {
   if (!b.invalid) return 'Reciclável (PET/HDPE)';
   return b.invalid === 'can' ? 'Alumínio (não aceito)' : 'Vidro (não aceito)';
+}
+
+export function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function rewardToTxLog(r: Reward): TxLogEntry {
+  return {
+    id: r.id,
+    hash: r.tx_hash ?? '',
+    label: STAGE_LABELS[r.stage] ?? r.stage,
+    reward: r.greentoken_amount,
+    datetime: fmtDateTime(r.sent_at),
+  };
 }

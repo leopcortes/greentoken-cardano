@@ -15,7 +15,9 @@ export function CurrentWalletPage() {
   const {
     tokens, bumpKey, txLog, walletRef,
     users, currentUser, currentUserId, setCurrentUserId,
+    activeStage,
   } = useStation();
+  const pipelineBusy = activeStage >= 0;
 
   return (
     <div ref={walletRef} className="gt-card p-[18px] flex-1 flex min-h-0 flex-col">
@@ -33,6 +35,7 @@ export function CurrentWalletPage() {
         <Select
           value={currentUserId ?? undefined}
           onValueChange={(v) => setCurrentUserId(v)}
+          disabled={pipelineBusy}
         >
           <SelectTrigger className="h-8 w-[150px] text-[11px] flex-none">
             <SelectValue placeholder="Selecionar" />
@@ -87,15 +90,23 @@ export function CurrentWalletPage() {
             txLog.length > 3 ? 'overflow-y-scroll gt-always-scrollbar pr-2' : 'overflow-y-hidden pr-3.5'
           }`}
         >
-          {txLog.slice(0, 10).map((tx) => (
-            <div key={tx.id} className="flex justify-between items-center gap-2 text-[11px]">
-              <div className="flex flex-col gap-[2px] min-w-0">
-                <span className="font-semibold text-ink-2">{tx.label}</span>
-                <span className="mono text-ink-4 text-[9px] truncate">{tx.datetime} - {truncMid(tx.hash, 8, 6)}</span>
-              </div>
-              <div className="mono font-bold text-gt-700 text-xs flex-none">+{tx.reward}</div>
+          {txLog.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-[11px] text-ink-4 italic">
+              Sem recompensas ainda.
             </div>
-          ))}
+          ) : (
+            txLog.slice(0, 10).map((tx) => (
+              <div key={tx.id} className="flex justify-between items-center gap-2 text-[11px]">
+                <div className="flex flex-col gap-[2px] min-w-0">
+                  <span className="font-semibold text-ink-2">{tx.label}</span>
+                  <span className="mono text-ink-4 text-[9px] truncate">
+                    {tx.datetime}{tx.hash ? ` - ${truncMid(tx.hash, 8, 6)}` : ''}
+                  </span>
+                </div>
+                <div className="mono font-bold text-gt-700 text-xs flex-none">+{tx.reward}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
