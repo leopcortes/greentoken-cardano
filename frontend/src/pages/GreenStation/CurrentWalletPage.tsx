@@ -13,12 +13,11 @@ import { truncMid } from '@/lib/helpers';
 
 export function CurrentWalletPage() {
   const {
-    tokens, ada, bumpKey, txLog, walletRef,
+    tokens, bumpKey, txLog, walletRef,
     users, currentUser, currentUserId, setCurrentUserId,
     activeStage,
   } = useStation();
   const pipelineBusy = activeStage >= 0;
-  const adaDisplay = ada !== null ? Number(ada).toFixed(2) : null;
 
   return (
     <div ref={walletRef} className="gt-card p-[18px] flex-1 flex min-h-0 flex-col">
@@ -72,11 +71,6 @@ export function CurrentWalletPage() {
           <div className="text-[11px] text-ink-3">
             ≈ R$ {(tokens * 0.05).toFixed(2)} em vouchers
           </div>
-          {adaDisplay !== null && (
-            <div className="text-[11px] text-ink-3 mt-1 mono">
-              {adaDisplay} ADA on-chain
-            </div>
-          )}
         </div>
 
         <Button

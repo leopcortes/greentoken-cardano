@@ -21,6 +21,9 @@ export interface User {
   email: string;
   wallet_address: string | null;
   pubkey_hash: string | null;
+  // true se o usuario tem mnemonica custodiada (greenwallet); false para
+  // usuarios legados criados antes da migracao 002 com wallet_address manual.
+  has_greenwallet: boolean;
   created_at: string;
 }
 

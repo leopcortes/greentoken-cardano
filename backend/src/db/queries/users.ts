@@ -8,6 +8,7 @@ export interface User {
   email: string
   wallet_address: string | null
   pubkey_hash: string | null
+  has_greenwallet: boolean
   created_at: Date
 }
 
@@ -26,8 +27,13 @@ export function requireWallet(user: User | null, userIdForError?: string): UserW
   return user as UserWithWallet
 }
 
+// has_greenwallet sinaliza usuarios criados via fluxo greenwallet (mnemonica
+// criptografada presente). Usuarios "legados" tem wallet_address informado
+// manualmente (Lace) mas sem custodia - has_greenwallet = false.
 const PUBLIC_COLUMNS =
-  'id, role, name, email, wallet_address, pubkey_hash, created_at'
+  'id, role, name, email, wallet_address, pubkey_hash, ' +
+  '(mnemonic_ciphertext IS NOT NULL) AS has_greenwallet, ' +
+  'created_at'
 
 export async function findById(id: string): Promise<User | null> {
   const { rows } = await pool.query(
