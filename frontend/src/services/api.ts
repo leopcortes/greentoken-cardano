@@ -19,9 +19,28 @@ export interface User {
   role: 'recycler' | 'owner';
   name: string;
   email: string;
-  wallet_address: string;
-  pubkey_hash: string;
+  wallet_address: string | null;
+  pubkey_hash: string | null;
   created_at: string;
+}
+
+export interface CreatedUser extends User {
+  // Mnemonic so vem na resposta de POST /users (greenwallet recem-gerada).
+  // Nunca mais sera exposta sem reautenticacao.
+  mnemonic: string[];
+}
+
+export interface GreenwalletAsset {
+  unit: string;
+  quantity: string;
+}
+
+export interface GreenwalletBalance {
+  address: string;
+  lovelace: string;
+  ada: string;
+  greentoken: number;
+  assets: GreenwalletAsset[];
 }
 
 export interface Bottle {
@@ -132,12 +151,18 @@ export const getUser = (id: string) =>
   request<User>(`/users/${id}`);
 
 export const createUser = (data: {
-  role: string; name: string; email: string; wallet_address: string;
+  role: string; name: string; email: string;
 }) =>
-  request<User>('/users', { method: 'POST', body: JSON.stringify(data) });
+  request<CreatedUser>('/users', { method: 'POST', body: JSON.stringify(data) });
 
 export const getUserRewards = (id: string) =>
   request<{ rewards: Reward[]; total_greentoken: number }>(`/users/${id}/rewards`);
+
+export const getGreenwallet = (id: string) =>
+  request<{ address: string; pubkey_hash: string }>(`/users/${id}/greenwallet`);
+
+export const getGreenwalletBalance = (id: string) =>
+  request<GreenwalletBalance>(`/users/${id}/greenwallet/balance`);
 
 // --- Bottles ---
 

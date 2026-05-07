@@ -9,6 +9,9 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "@meshsdk/core": "^1.9.0-beta",
+    "@meshsdk/wallet": "^2.0.0-beta",
+    "bip39": "^3.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.1"
