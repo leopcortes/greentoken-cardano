@@ -21,7 +21,7 @@ CREATE TABLE containers (
   latitude              FLOAT,
   longitude             FLOAT,
   capacity_liters       NUMERIC(10,2) NOT NULL,
-  current_volume_liters NUMERIC(10,2) NOT NULL DEFAULT 0,
+  current_volume_liters NUMERIC(12,5) NOT NULL DEFAULT 0,
   status                VARCHAR(30)  NOT NULL DEFAULT 'active'
                           CHECK (status IN ('active', 'ready_for_collection', 'in_route', 'maintenance')),
   last_updated          TIMESTAMP    NOT NULL DEFAULT NOW(),
@@ -217,6 +217,30 @@ VALUES (
   -15.761322,
   -47.867377,
   5.00,
+  'active'
+)
+ON CONFLICT (owner_id, name) DO NOTHING;
+
+INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
+VALUES (
+  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  'Ponto de Coleta Pão de Açucar',
+  'Lago Norte, Brasília',
+  -15.72296,
+  -47.88760,
+  100.00,
+  'active'
+)
+ON CONFLICT (owner_id, name) DO NOTHING;
+
+INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
+VALUES (
+  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  'Ponto de Coleta BigBox',
+  'Lago Norte, Brasília',
+  -15.72074,
+  -47.88310,
+  50.00,
   'active'
 )
 ON CONFLICT (owner_id, name) DO NOTHING;

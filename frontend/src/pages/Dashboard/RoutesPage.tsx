@@ -80,11 +80,13 @@ export function RoutesPage() {
     try {
       const [trucksData, containersData, stationsData] = await Promise.all([
         getTrucks(),
-        getContainers({ status: 'ready_for_collection' }),
+        getContainers({ status: 'all' }),
         getStations(),
       ]);
       setAvailableTrucks(trucksData.filter(t => t.status === 'available'));
-      setReadyContainers(containersData);
+      // Containers podem ser coletados a qualquer momento, independente de volume.
+      // Excluem-se apenas os já em rota ou em manutenção.
+      setReadyContainers(containersData.filter(c => c.status === 'active' || c.status === 'ready_for_collection'));
       setStationOptions(stationsData);
       setSelectedTruck('');
       setSelectedContainers([]);
@@ -304,7 +306,7 @@ export function RoutesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Containers prontos para coleta<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
+              <Label>Containers disponíveis para coleta<span className="text-red-500">*</span> ({selectedContainers.length} selecionado(s))</Label>
               {readyContainers.length > 0 ? (
                 <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2">
                   {readyContainers.map(c => (
@@ -323,7 +325,7 @@ export function RoutesPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhum container pronto para coleta no momento</p>
+                <p className="text-sm text-muted-foreground">Nenhum container disponível para coleta no momento</p>
               )}
             </div>
             <div className="space-y-2">

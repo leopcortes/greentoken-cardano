@@ -122,12 +122,14 @@ greentoken-cardano/
 |   |-- users/                        # Endereços e chaves dos usuários
 |-- frontend/
 |   |-- src/
-|   |   |-- components/ui/            # Componentes shadcn (Radix + Tailwind)
+|   |   |-- components/               # Componentes compartilhados (Bottle SVG, ui/ shadcn)
 |   |   |-- hooks/                    # Custom hooks (useSortable)
-|   |   |-- lib/                      # Utilitários (truncateMiddle, labels)
-|   |   |-- pages/                    # Páginas (Bottles, Users, Containers, Routes, Stations)
+|   |   |-- lib/                      # Utilitários (helpers, labels, types, sounds)
+|   |   |-- pages/
+|   |   |   |-- GreenStation/         # Tela do container (rota /): TopBar, CurrentBottle, CurrentContainer, CurrentWallet, Inventory + StationContext (drag/drop, polling, pipeline)
+|   |   |   |-- Dashboard/            # Painel admin (rota /dashboard): Bottles, Users, Containers, Routes, Stations
 |   |   |-- services/api.ts           # Cliente HTTP tipado para a API REST
-|   |   |-- App.tsx                   # Layout principal com abas
+|   |   |-- App.tsx                   # Roteamento (Station em /, Dashboard em /dashboard)
 |   |   |-- index.css                 # Tema verde Tailwind + variáveis CSS
 |   |-- vite.config.ts                # Vite + proxy /api -> backend:3000
 |   |-- tailwind.config.js            # Tailwind v3 + tokens shadcn
@@ -269,13 +271,38 @@ cd frontend && npm install && npm run dev
 
 ---
 
-## Frontend (Dashboard)
+## Frontend
 
-Dashboard web construído com **React + TypeScript + Vite + TailwindCSS v3 + shadcn/ui** (componentes Radix UI).
+Aplicação web construída com **React + TypeScript + Vite + TailwindCSS v3 + shadcn/ui** (componentes Radix UI). Possui duas telas principais:
 
-### Funcionalidades
+| Rota | Tela | Função |
+|------|------|--------|
+| `/` | **Greentoken Station** | Simulador interativo do container físico (reciclador) |
+| `/dashboard` | **Dashboard** | Painel CRUD para operadores (owners) |
 
-- **5 abas**: Usuários, Garrafas, Containers, Rotas/Caminhões, Estações de Tratamento
+### Greentoken Station
+
+Simula a tela frontal do container Greentoken, visando o **reciclador**. Layout em 3 colunas:
+
+- **Esquerda** — `CurrentBottlePage` (etapas da garrafa atual: Validada IA → Inserida → Compactada) + `CurrentWalletPage` (saldo Greentoken, endereço Cardano truncado, tier Bronze/Prata/Ouro, últimas tx hashes)
+- **Centro** — `CurrentContainerPage` com SVG da lixeira (tampa animada, scan da IA, garrafas compactadas empilhadas, barra de volume com marker em 90%)
+- **Direita** — `InventoryPage` (20 itens fixos: garrafas PET/HDPE válidas + lata e vidro como itens inválidos)
+
+**Fluxo do drop:**
+1. Reciclador arrasta uma garrafa do inventário (direita) para o container (centro) — tampa abre no hover
+2. IA do container scaneia (linha varrendo, ~900ms) → aceita PET/HDPE ou rejeita lata/vidro com shake vermelho + toast de erro
+3. Aceitação dispara `POST /bottles` no backend; o estado fica em "validating" até a confirmação on-chain
+4. Pipeline `inserted → compacted` é alimentado pelo polling de `GET /bottles/:id` (5s); cada confirmação dispara confete de tokens voando do container até a wallet, count-up no saldo e linha nova no log de transações
+5. Inventário é reposto automaticamente após cada drop (aceito ou rejeitado)
+
+**Topbar:** chip de "garrafas processadas hoje" calculado a partir das recompensas do dia (stage=`inserted`), chip "Confirmando Xs" durante o polling on-chain, e link para o dashboard.
+
+Cada operação chama os mesmos endpoints REST do dashboard (`POST /bottles`, `GET /bottles/:id`, `GET /users/:id/rewards`, `GET /containers`).
+
+### Dashboard
+
+Painel administrativo com 5 abas: Usuários, Garrafas, Containers, Rotas/Caminhões, Estações de Tratamento. Recursos:
+
 - **CRUD completo**: criar e visualizar registros de cada entidade via interface gráfica
 - **Bloqueios de fluxo**: botões desabilitados conforme regras de negócio (ex: não compactar container < 90%, não entregar na estação sem coletar todas as paradas)
 - **Cooldown de blockchain**: após criar uma garrafa, o botão fica desabilitado até a transação ser confirmada on-chain (polling automático a cada 5s)
@@ -361,6 +388,7 @@ O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam p
 ## Próximos Passos
 
 - [x] Frontend web para recicladores e owners
+- [x] Tela Greentoken Station (simulação interativa do container físico, com drag-drop, IA de validação e pipeline on-chain)
 - [x] Implementar lógica de rotas de caminhão (CRUD de caminhões, criação de rotas, coleta de paradas)
 - [x] Estações de tratamento e trituração
 - [x] Bloqueios de fluxo no frontend (evitar etapas fora de ordem)
