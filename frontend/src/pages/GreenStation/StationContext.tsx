@@ -36,6 +36,7 @@ import {
   getUsers,
   type Bottle as ApiBottle,
   type Container,
+  type Reward,
   type User,
 } from '@/services/api';
 
@@ -75,7 +76,6 @@ interface StationState {
   fillPct: number;
   setFillPct: React.Dispatch<React.SetStateAction<number>>;
   bottlesProcessed: number;
-  setBottlesProcessed: React.Dispatch<React.SetStateAction<number>>;
 
   activeStage: number;
   setActiveStage: React.Dispatch<React.SetStateAction<number>>;
@@ -157,7 +157,23 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   const [crushed, setCrushed] = useState(0);
   const [fillPct, setFillPct] = useState(0);
-  const [bottlesProcessed, setBottlesProcessed] = useState(0);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+
+  // Conta garrafas inseridas hoje (dia local) com base nas recompensas de
+  // stage='inserted', para refletir o dia inteiro e não apenas a sessão atual.
+  const bottlesProcessed = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    return rewards.reduce((acc, r) => {
+      if (r.stage !== 'inserted') return acc;
+      const t = new Date(r.sent_at);
+      if (Number.isNaN(t.getTime())) return acc;
+      if (t.getFullYear() === y && t.getMonth() === m && t.getDate() === d) return acc + 1;
+      return acc;
+    }, 0);
+  }, [rewards]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
@@ -241,6 +257,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
     if (!currentUserId) {
       setTokens(0);
       setTxLog([]);
+      setRewards([]);
       return;
     }
     let alive = true;
@@ -249,6 +266,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         if (!alive) return;
         setTokens(data.total_greentoken);
         setTxLog(data.rewards.map(rewardToTxLog));
+        setRewards(data.rewards);
         setBumpKey(0);
         setCompleted(new Set());
         setActiveStage(-1);
@@ -313,6 +331,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       const data = await getUserRewards(currentUserId);
       setTokens(data.total_greentoken);
       setTxLog(data.rewards.map(rewardToTxLog));
+      setRewards(data.rewards);
     } catch {
       // erro silencioso - próxima confirmação tenta de novo
     }
@@ -371,7 +390,6 @@ export function StationProvider({ children }: { children: ReactNode }) {
         });
         setTokens((t) => t + stage.reward);
         setBumpKey((k) => k + 1);
-        setBottlesProcessed((n) => n + 1);
         setTxLog((log) => [
           {
             id: `tx-opt-i-${remote.id}`,
@@ -456,15 +474,19 @@ export function StationProvider({ children }: { children: ReactNode }) {
     setAiResult('validating');
     setLidOpen(true);
     setScanning(true);
-    playBottleDrop();
 
     // Garrafa inválida (can/glass): reject puramente client-side, sem API.
     if (b.invalid) {
+      const material = b.invalid === 'can' ? 'Lata de alumínio' : 'Vidro';
       window.setTimeout(() => {
         setScanning(false);
         setAiResult('rejected');
         setReject(true);
         setLidOpen(false);
+        toast.error(`A IA do container rejeitou o item ${material}.`, {
+          description: 'Apenas garrafas PET/HDPE são aceitas.',
+          duration: 6000,
+        });
         window.setTimeout(() => {
           setReject(false);
           setActiveStage(-1);
@@ -501,6 +523,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setAiResult('accepted');
         setActiveStage(0);
         setCurrentBottleApi(result.bottle);
+        window.setTimeout(playBottleDrop, 500);
         toast.success(
           `Garrafa "${result.bottle.bottle_id_text}" validada pela IA e inserida no container.`,
           {
@@ -614,7 +637,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       reject, setReject,
       crushed, setCrushed,
       fillPct, setFillPct,
-      bottlesProcessed, setBottlesProcessed,
+      bottlesProcessed,
       activeStage, setActiveStage,
       completed, setCompleted,
       currentBottle, setCurrentBottle,
