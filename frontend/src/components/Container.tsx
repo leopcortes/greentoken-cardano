@@ -1,7 +1,6 @@
 interface ContainerProps {
   open?: boolean;
   scanning?: boolean;
-  reject?: boolean;
   fillPct?: number;
   crushedCount?: number;
   variant?: 'studio' | 'pipeline' | 'player';
@@ -10,7 +9,6 @@ interface ContainerProps {
 export function Container({
   open = false,
   scanning = false,
-  reject = false,
   crushedCount = 0,
   variant = 'studio',
 }: ContainerProps) {
@@ -96,7 +94,7 @@ export function Container({
       <g
         style={{
           transformOrigin: '70px 92px',
-          transform: open ? 'rotate(-58deg)' : 'rotate(0deg)',
+          transform: open ? 'rotate(-30deg)' : 'rotate(0deg)',
           transition: 'transform 380ms cubic-bezier(.4,1.4,.5,1)',
         }}
       >
@@ -119,20 +117,6 @@ export function Container({
         <circle cx="250" cy="92" r="2.5" fill={palette.edge} />
       </g>
 
-      {reject && (
-        <rect
-          x="58"
-          y="58"
-          width="204"
-          height="304"
-          rx="6"
-          fill="none"
-          stroke="#dc2626"
-          strokeWidth="3"
-          opacity="0.85"
-          style={{ animation: 'gt-shake 300ms ease' }}
-        />
-      )}
     </svg>
   );
 }

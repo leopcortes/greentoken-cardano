@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useStation } from './StationContext';
-import { STAGES } from './helpers';
+import { STAGES } from '@/lib/helpers';
 import { CONTAINER_STATUS_LABELS, t } from '@/lib/labels';
 
 const STATUS_CHIP: Record<string, string> = {
@@ -21,7 +21,7 @@ const STATUS_CHIP: Record<string, string> = {
 
 export function CurrentContainerPage() {
   const {
-    binRef, dropArmed, lidOpen, scanning, reject, fillPct, crushed, activeStage,
+    binRef, dropArmed, lidOpen, scanning, fillPct, crushed, activeStage,
     containers, currentContainer, currentContainerId, setCurrentContainerId,
   } = useStation();
 
@@ -36,7 +36,10 @@ export function CurrentContainerPage() {
   const statusClass = STATUS_CHIP[status] ?? STATUS_CHIP.maintenance;
 
   const capacity = currentContainer?.capacity_liters ?? 0;
-  const currentVolume = capacity > 0 ? (fillPct / 100) * capacity : 0;
+  // Lê o volume armazenado em alta precisão e arredonda apenas na exibição;
+  // derivar de fillPct (já arredondado) introduzia erro visível para
+  // garrafas pequenas (300ml/600ml).
+  const currentVolume = currentContainer?.current_volume_liters ?? 0;
 
   return (
     <div
@@ -96,7 +99,7 @@ export function CurrentContainerPage() {
           animation: dropArmed ? 'gt-drop-glow 1.2s ease-in-out infinite' : 'none',
         }}
       >
-        <Container open={lidOpen} scanning={scanning} reject={reject} fillPct={fillPct} crushedCount={crushed} />
+        <Container open={lidOpen} scanning={scanning} fillPct={fillPct} crushedCount={crushed} />
         {scanning && (
           <div
             className="absolute top-[70px] left-1/2 -translate-x-1/2 px-[10px] py-1 rounded text-[10px] font-semibold tracking-[0.08em] uppercase font-mono"
@@ -106,14 +109,14 @@ export function CurrentContainerPage() {
               border: '1px solid rgba(187,247,208,0.3)',
             }}
           >
-            AI · Identificando…
+            IA · Identificando…
           </div>
         )}
       </div>
 
       <div className="mt-[18px] text-xs text-ink-3 text-center max-w-[320px]">
         {activeStage >= 0 ? (
-          <span><strong className="text-gt-700">Processando…</strong> {STAGES[activeStage]?.label}</span>
+          <span>Processando… <strong className="text-gt-700">{STAGES[activeStage]?.label}</strong></span>
         ) : (
           'Arraste uma garrafa do inventário.'
         )}
@@ -151,7 +154,7 @@ export function CurrentContainerPage() {
           </div>
           {readyForCollection && (
             <div className="mt-2 text-[10px] font-semibold text-warn">
-              Container cheio — aguardando coleta. Inserções pausadas.
+              Container cheio - aguardando coleta. Inserções pausadas.
             </div>
           )}
         </div>

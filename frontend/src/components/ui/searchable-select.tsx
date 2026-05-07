@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';

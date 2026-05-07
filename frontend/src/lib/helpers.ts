@@ -18,9 +18,6 @@ export const STAGES: StageInfo[] = [
 const SIZES: BottleSize[] = ['S', 'M', 'L'];
 const TINTS: BottleTint[] = ['clear', 'clear', 'green', 'blue', 'amber', 'clear'];
 const KINDS: BottleKind[] = ['PET', 'PET', 'PET', 'HDPE', 'PET'];
-const INVALIDS: BottleInvalid[] = [
-  null, null, null, null, null, null, null, null, null, 'can', 'glass',
-];
 
 export function buildInventory(seed = 7, count = 20): InventoryBottleData[] {
   let s = seed;
@@ -28,9 +25,14 @@ export function buildInventory(seed = 7, count = 20): InventoryBottleData[] {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
+  // Pelo menos 1 lata e 1 vidro (em posições distintas e estáveis pela seed).
+  const canPos = Math.floor(rand() * count);
+  let glassPos = Math.floor(rand() * count);
+  if (glassPos === canPos) glassPos = (glassPos + 1) % count;
+
   const list: InventoryBottleData[] = [];
   for (let i = 0; i < count; i++) {
-    const inv = INVALIDS[Math.floor(rand() * INVALIDS.length)];
+    const inv: BottleInvalid = i === canPos ? 'can' : i === glassPos ? 'glass' : null;
     list.push({
       id: `b-${i}`,
       size: SIZES[Math.floor(rand() * SIZES.length)],
@@ -43,15 +45,30 @@ export function buildInventory(seed = 7, count = 20): InventoryBottleData[] {
   return list;
 }
 
+function genId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+}
+
 export function makeReplacementBottle(): InventoryBottleData {
   const rand = Math.random;
-  const inv = INVALIDS[Math.floor(rand() * INVALIDS.length)];
   return {
-    id: `b-r-${Date.now()}-${Math.floor(rand() * 9999)}`,
+    id: genId('b-r'),
     size: SIZES[Math.floor(rand() * SIZES.length)],
     tint: TINTS[Math.floor(rand() * TINTS.length)],
-    kind: inv ? (inv === 'can' ? 'AL' : 'GLASS') : KINDS[Math.floor(rand() * KINDS.length)],
-    invalid: inv,
+    kind: KINDS[Math.floor(rand() * KINDS.length)],
+    invalid: null,
+    rot: `${(rand() * 24 - 12).toFixed(1)}deg`,
+  };
+}
+
+export function makeInvalidReplacement(kind: 'can' | 'glass'): InventoryBottleData {
+  const rand = Math.random;
+  return {
+    id: genId('b-r'),
+    size: SIZES[Math.floor(rand() * SIZES.length)],
+    tint: TINTS[Math.floor(rand() * TINTS.length)],
+    kind: kind === 'can' ? 'AL' : 'GLASS',
+    invalid: kind,
     rot: `${(rand() * 24 - 12).toFixed(1)}deg`,
   };
 }

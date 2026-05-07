@@ -59,6 +59,18 @@ export interface Container {
   last_updated: string;
 }
 
+export interface BlockchainTx {
+  id: string;
+  bottle_id: string;
+  stage: string;
+  tx_hash: string | null;
+  status: 'pending' | 'confirmed' | 'failed';
+  datum_json: string | null;
+  redeemer_json: string | null;
+  submitted_at: string;
+  confirmed_at: string | null;
+}
+
 export interface Reward {
   id: string;
   user_id: string;
@@ -143,7 +155,7 @@ export const getBottles = (params?: { user_id?: string; stage?: string; containe
 };
 
 export const getBottle = (id: string) =>
-  request<Bottle>(`/bottles/${id}`);
+  request<{ bottle: Bottle; txs: BlockchainTx[]; rewards: Reward[] }>(`/bottles/${id}`);
 
 export const createBottle = (data: { user_id: string; container_id: string; volume_ml: number }) =>
   request<{ bottle: Bottle; tx_hash: string; message: string }>(

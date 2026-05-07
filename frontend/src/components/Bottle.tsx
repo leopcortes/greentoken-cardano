@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { CSSProperties } from 'react';
-import type { BottleInvalid, BottleKind, BottleSize, BottleTint } from '@/pages/GreenStation/types';
+import type { BottleInvalid, BottleKind, BottleSize, BottleTint } from '@/lib/types';
 
 interface BottleProps {
   size?: BottleSize;

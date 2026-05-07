@@ -14,13 +14,13 @@ export function DashboardPage() {
       <header className="border-b bg-card px-6 py-4 flex justify-between">
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Avatar className="h-8 w-8 rounded-md">
+            <Avatar className="w-9 h-9 rounded-[10px]">
               <AvatarImage src="/unb_logo.png" className="object-cover" />
-              <AvatarFallback className='bg-green-600 text-white font-bold text-sm'>G</AvatarFallback>
+              <AvatarFallback className='bg-green-600 text-white font-bold text-sm'>₲</AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Greentoken Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-md font-bold tracking-[-0.01em] leading-snug">Greentoken Dashboard</h1>
+              <p className="text-[12px] text-ink-3 leading-tight">
                 Rastreamento de reciclagem na blockchain Cardano
               </p>
             </div>
@@ -28,9 +28,8 @@ export function DashboardPage() {
         </div>
         
         <div>
-          <h1 className="text-base font-normal tracking-tight text-right">Projeto de Conclusão de Curso de Eng. de Computação</h1>
-          <p className="text-xs text-muted-foreground text-right">Ana Paula Oliveira da Nóbrega Costa</p>
-          <p className="text-xs text-muted-foreground text-right">Leonardo Pereira Côrtes</p>
+          <h1 className="text-base font-normal tracking-tight text-right leading-tight">Projeto de Conclusão de Curso de Eng. de Computação</h1>
+          <p className="text-xs text-ink-3 text-right">Ana Paula Nóbrega e Leonardo Côrtes</p>
         </div>
       </header>
 

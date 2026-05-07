@@ -1,6 +1,6 @@
 import { Bottle } from '@/components/Bottle';
 import { useStation } from './StationContext';
-import { kindLabelOf, materialLabelOf, sizeLabelOf, tintLabelOf } from './helpers';
+import { kindLabelOf, materialLabelOf, sizeLabelOf, tintLabelOf } from '@/lib/helpers';
 
 type NodeStatus = 'pending' | 'active' | 'done' | 'failed';
 
@@ -70,7 +70,7 @@ function StatusArrow({ active }: { active: boolean }) {
 }
 
 export function CurrentBottlePage() {
-  const { currentBottle, aiResult, activeStage, completed } = useStation();
+  const { currentBottle, currentBottleApi, aiResult, activeStage, completed } = useStation();
 
   const aiStatus: NodeStatus =
     aiResult === 'validating' ? 'active' :
@@ -100,9 +100,11 @@ export function CurrentBottlePage() {
     <div className="gt-card p-[18px]">
       <div className="flex justify-between items-baseline mb-[14px]">
         <div className="gt-eyebrow">Garrafa atual</div>
-        {currentBottle && (
+        {currentBottleApi ? (
+          <span className="mono text-[10px] text-ink-4">{currentBottleApi.bottle_id_text}</span>
+        ) : currentBottle ? (
           <span className="mono text-[10px] text-ink-4">#{currentBottle.id.slice(-6)}</span>
-        )}
+        ) : null}
       </div>
 
       <div

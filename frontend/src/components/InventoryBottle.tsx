@@ -6,8 +6,8 @@ import {
   materialLabelOf,
   sizeLabelOf,
   tintLabelOf,
-} from '@/pages/GreenStation/helpers';
-import type { InventoryBottleData } from '@/pages/GreenStation/types';
+} from '@/lib/helpers';
+import type { InventoryBottleData } from '@/lib/types';
 
 interface InventoryBottleProps {
   b: InventoryBottleData;

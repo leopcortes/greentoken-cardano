@@ -49,7 +49,7 @@ async function processTransaction(tx: txsDb.BlockchainTx): Promise<void> {
 /**
  * Para cada garrafa recém-validada (stage='inserted' com UTxO confirmado),
  * dispara automaticamente a tx de compactação individual no smart contract.
- * Repassa erros pontuais (p.ex. UTxO do operador indisponível) — a próxima
+ * Repassa erros pontuais (p.ex. UTxO do operador indisponível) - a próxima
  * iteração do worker tentará novamente.
  */
 async function autoCompactPending(): Promise<void> {

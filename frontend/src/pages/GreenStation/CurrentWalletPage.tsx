@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useStation } from './StationContext';
-import { truncMid } from './helpers';
+import { truncMid } from '@/lib/helpers';
 
 export function CurrentWalletPage() {
   const {
@@ -28,7 +28,7 @@ export function CurrentWalletPage() {
             {currentUser?.name ?? 'Nenhum reciclador'}
           </div>
           <div className="mono text-[10px] mt-0.5 flex gap-1 items-center text-ink-4">
-            {currentUser ? truncMid(currentUser.wallet_address, 8, 6) : '—'}
+            {currentUser ? truncMid(currentUser.wallet_address, 8, 6) : '-'}
             {currentUser && <CopyButton value={currentUser.wallet_address} />}
           </div>
         </div>

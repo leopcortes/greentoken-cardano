@@ -16,22 +16,25 @@ import type {
   InventoryBottleData,
   Stage,
   TxLogEntry,
-} from './types';
+} from '../../lib/types';
 import {
   STAGES,
   buildInventory,
   fmtDateTime,
+  makeInvalidReplacement,
   makeReplacementBottle,
   rewardToTxLog,
   volumeMlOf,
-} from './helpers';
+} from '@/lib/helpers';
 import { Bottle } from '@/components/Bottle';
+import { playBottleDrop, playCoinReward } from '@/lib/sounds';
 import {
   createBottle,
   getBottle,
   getContainers,
   getUserRewards,
   getUsers,
+  type Bottle as ApiBottle,
   type Container,
   type User,
 } from '@/services/api';
@@ -104,6 +107,10 @@ interface StationState {
   currentUser: User | null;
   currentContainer: Container | null;
 
+  currentBottleApi: ApiBottle | null;
+
+  processingStartedAt: number | null;
+
   onPickStart: (bottle: InventoryBottleData, meta: PickMeta) => void;
 }
 
@@ -120,6 +127,23 @@ interface PendingBottle {
   inventoryId: string;
   phase: 'inserted' | 'compacted';
   startedAt: number;
+}
+
+// Erros do backend chegam no formato `"<status>: <body>"` (api.ts), e o body
+// frequentemente é `{"error":"..."}`. Extrai a mensagem legível para o toast.
+function humanizeApiError(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message : String(err ?? fallback);
+  const match = raw.match(/^\d+:\s*(.+)$/s);
+  const body = match ? match[1] : raw;
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === 'object' && typeof parsed.error === 'string') {
+      return parsed.error;
+    }
+  } catch {
+    // body não é JSON - usa como está
+  }
+  return body || fallback;
 }
 
 export function StationProvider({ children }: { children: ReactNode }) {
@@ -143,10 +167,13 @@ export function StationProvider({ children }: { children: ReactNode }) {
   const [activeStage, setActiveStage] = useState(-1);
   const [completed, setCompleted] = useState<Set<Stage>>(() => new Set());
   const [currentBottle, setCurrentBottle] = useState<InventoryBottleData | null>(null);
+  const [currentBottleApi, setCurrentBottleApi] = useState<ApiBottle | null>(null);
   const [aiResult, setAiResult] = useState<AiResult>(null);
 
   const [tokens, setTokens] = useState(0);
   const [bumpKey, setBumpKey] = useState(0);
+
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
 
   const [txLog, setTxLog] = useState<TxLogEntry[]>([]);
 
@@ -181,7 +208,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         if (c.length > 0) setCurrentContainerId((prev) => prev ?? c[0].id);
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da estação', { duration: 8000 });
+        toast.error(humanizeApiError(err, 'Erro ao carregar dados da estação'), { duration: 10000 });
       });
     return () => { alive = false; };
   }, []);
@@ -195,15 +222,20 @@ export function StationProvider({ children }: { children: ReactNode }) {
     [containers, currentContainerId],
   );
 
+  // Reset visual ao trocar de container (zera empilhamento de garrafas compactadas).
+  useEffect(() => {
+    setCrushed(0);
+  }, [currentContainerId]);
+
+  // Mantém o fillPct em sincronia com o estado real do container - dispara
+  // tanto na seleção inicial quanto quando refetchContainers atualiza o volume.
   useEffect(() => {
     if (!currentContainer) return;
     const pct = currentContainer.capacity_liters > 0
       ? Math.round((currentContainer.current_volume_liters / currentContainer.capacity_liters) * 100)
       : 0;
     setFillPct(pct);
-    setCrushed(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentContainerId]);
+  }, [currentContainer?.id, currentContainer?.current_volume_liters, currentContainer?.capacity_liters]);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -222,10 +254,11 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setActiveStage(-1);
         setAiResult(null);
         setCurrentBottle(null);
+        setCurrentBottleApi(null);
       })
       .catch((err) => {
         if (!alive) return;
-        toast.error(err instanceof Error ? err.message : 'Erro ao carregar recompensas', { duration: 8000 });
+        toast.error(humanizeApiError(err, 'Erro ao carregar recompensas'), { duration: 10000 });
       });
     return () => { alive = false; };
   }, [currentUserId]);
@@ -233,7 +266,17 @@ export function StationProvider({ children }: { children: ReactNode }) {
   // --- Helpers para o pipeline ---
 
   const replaceInventoryBottle = useCallback((oldId: string) => {
-    setInventory((list) => list.map((b) => (b.id === oldId ? makeReplacementBottle() : b)));
+    setInventory((list) => {
+      const remaining = list.filter((b) => b.id !== oldId);
+      const hasCan = remaining.some((b) => b.invalid === 'can');
+      const hasGlass = remaining.some((b) => b.invalid === 'glass');
+      const replacement = !hasCan
+        ? makeInvalidReplacement('can')
+        : !hasGlass
+          ? makeInvalidReplacement('glass')
+          : makeReplacementBottle();
+      return list.map((b) => (b.id === oldId ? replacement : b));
+    });
   }, []);
 
   const triggerConfetti = useCallback((count: number) => {
@@ -271,7 +314,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       setTokens(data.total_greentoken);
       setTxLog(data.rewards.map(rewardToTxLog));
     } catch {
-      // erro silencioso — próxima confirmação tenta de novo
+      // erro silencioso - próxima confirmação tenta de novo
     }
   };
 
@@ -294,19 +337,33 @@ export function StationProvider({ children }: { children: ReactNode }) {
       pendingBottleRef.current = null;
       pollingTimerRef.current = null;
       toast.warning(
-        'Confirmação on-chain está demorando demais — verifique em /dashboard/bottles.',
-        { duration: 10000 },
+        'Confirmação on-chain está demorando demais - verifique em /dashboard/bottles.',
+        { duration: 12000 },
       );
       setActiveStage(-1);
+      setProcessingStartedAt(null);
       replaceInventoryBottle(pending.inventoryId);
       return;
     }
 
     try {
-      const remote = await getBottle(pending.backendId);
+      const { bottle: remote, txs } = await getBottle(pending.backendId);
+      // Fonte da verdade: blockchain_txs (status='confirmed'). O campo
+      // bottles.utxo_hash é zerado durante autoCompact e não é confiável para
+      // detectar a confirmação da inserção; current_stage só muda quando a
+      // compactação confirma.
+      const insertedConfirmed = txs.some(
+        (t) => t.stage === 'inserted' && t.status === 'confirmed',
+      );
+      const compactedConfirmed = txs.some(
+        (t) => t.stage === 'compacted' && t.status === 'confirmed',
+      );
 
-      if (pending.phase === 'inserted' && remote.utxo_hash) {
+      let phase = pending.phase;
+
+      if (phase === 'inserted' && insertedConfirmed) {
         const stage = STAGES[0];
+        const insertedTx = txs.find((t) => t.stage === 'inserted' && t.status === 'confirmed');
         setCompleted((s) => {
           const n = new Set(s);
           n.add('inserted');
@@ -318,7 +375,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setTxLog((log) => [
           {
             id: `tx-opt-i-${remote.id}`,
-            hash: remote.utxo_hash ?? '',
+            hash: insertedTx?.tx_hash ?? '',
             label: stage.label,
             reward: stage.reward,
             datetime: fmtDateTime(new Date().toISOString()),
@@ -326,14 +383,26 @@ export function StationProvider({ children }: { children: ReactNode }) {
           ...log,
         ]);
         triggerConfetti(2);
+        playCoinReward();
         setActiveStage(1);
         setLidOpen(false);
         setCrushed((c) => c + 1);
+        toast.success(
+          'Inserção confirmada on-chain - garrafa está sendo compactada…',
+          { duration: 3000 },
+        );
         void refetchRewards();
         void refetchContainers();
-        pendingBottleRef.current = { ...pending, phase: 'compacted' };
-      } else if (pending.phase === 'compacted' && remote.current_stage === 'compacted') {
+        // Reseta startedAt para que a janela de timeout seja por fase, não cumulativa.
+        pendingBottleRef.current = { ...pending, phase: 'compacted', startedAt: Date.now() };
+        phase = 'compacted';
+      }
+
+      // Sem `else`: se ambas confirmações já estão prontas no mesmo poll
+      // (ex.: FE perdeu uma janela), processa as duas em sequência.
+      if (phase === 'compacted' && compactedConfirmed) {
         const stage = STAGES[1];
+        const compactedTx = txs.find((t) => t.stage === 'compacted' && t.status === 'confirmed');
         setCompleted((s) => {
           const n = new Set(s);
           n.add('compacted');
@@ -344,7 +413,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setTxLog((log) => [
           {
             id: `tx-opt-c-${remote.id}`,
-            hash: remote.utxo_hash ?? '',
+            hash: compactedTx?.tx_hash ?? '',
             label: stage.label,
             reward: stage.reward,
             datetime: fmtDateTime(new Date().toISOString()),
@@ -352,7 +421,9 @@ export function StationProvider({ children }: { children: ReactNode }) {
           ...log,
         ]);
         triggerConfetti(3);
+        playCoinReward();
         setActiveStage(-1);
+        setProcessingStartedAt(null);
         replaceInventoryBottle(pending.inventoryId);
         void refetchRewards();
         void refetchContainers();
@@ -361,7 +432,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         return;
       }
     } catch {
-      // erro de rede transiente — apenas reagenda
+      // erro de rede transiente - apenas reagenda
     }
 
     pollingTimerRef.current = window.setTimeout(() => pollRef.current(), POLL_MS);
@@ -371,11 +442,11 @@ export function StationProvider({ children }: { children: ReactNode }) {
   // exposta via handleDropRef para os listeners de documento.
   handleDropRef.current = (b: InventoryBottleData) => {
     if (!currentUser || !currentContainer) {
-      toast.error('Selecione um reciclador e um container válidos.');
+      toast.error('Selecione um reciclador e um container válidos.', { duration: 8000 });
       return;
     }
     if (currentContainer.status !== 'active') {
-      toast.error('Container indisponível para inserções no momento.');
+      toast.error('Container indisponível para inserções no momento.', { duration: 8000 });
       return;
     }
 
@@ -385,6 +456,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
     setAiResult('validating');
     setLidOpen(true);
     setScanning(true);
+    playBottleDrop();
 
     // Garrafa inválida (can/glass): reject puramente client-side, sem API.
     if (b.invalid) {
@@ -403,12 +475,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    setCurrentBottleApi(null);
     const userId = currentUser.id;
     const containerId = currentContainer.id;
-    const cap = currentContainer.capacity_liters;
-    const liters = volumeMlOf(b.size) / 1000;
 
     const start = Date.now();
+    setProcessingStartedAt(start);
     window.setTimeout(() => setScanning(false), SCAN_MS);
 
     const waitScan = async () => {
@@ -428,33 +500,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setScanning(false);
         setAiResult('accepted');
         setActiveStage(0);
+        setCurrentBottleApi(result.bottle);
         toast.success(
-          `Garrafa "${result.bottle.bottle_id_text}" criada. Aguardando confirmação on-chain…`,
+          `Garrafa "${result.bottle.bottle_id_text}" validada pela IA e inserida no container.`,
           {
-            description: result.tx_hash ? `tx: ${result.tx_hash.slice(0, 16)}…` : undefined,
-            duration: 5000,
+            description: result.tx_hash
+              ? `Aguardando confirmação on-chain - tx: ${result.tx_hash.slice(0, 16)}…`
+              : 'Aguardando confirmação on-chain…',
+            duration: 8000,
           },
         );
 
-        // Atualização otimista do volume — backend já contabilizou ao criar.
-        if (cap > 0) {
-          setContainers((list) =>
-            list.map((c) =>
-              c.id === containerId
-                ? {
-                    ...c,
-                    current_volume_liters: Math.min(
-                      cap,
-                      c.current_volume_liters + liters,
-                    ),
-                  }
-                : c,
-            ),
-          );
-          setFillPct((prev) => Math.min(100, Math.round(prev + (liters / cap) * 100)));
-        }
-        void refetchContainers();
-
+        // Volume só atualiza após inserted/compacted confirmados (via refetch no polling).
         pendingBottleRef.current = {
           backendId: result.bottle.id,
           inventoryId: b.id,
@@ -470,8 +527,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
         setAiResult('rejected');
         setReject(true);
         setLidOpen(false);
-        const msg = err instanceof Error ? err.message : 'Erro ao criar garrafa';
-        toast.error(msg, { duration: 10000 });
+        setProcessingStartedAt(null);
+        toast.error(humanizeApiError(err, 'Erro ao criar garrafa'), { duration: 12000 });
         window.setTimeout(() => {
           setReject(false);
           setActiveStage(-1);
@@ -572,14 +629,17 @@ export function StationProvider({ children }: { children: ReactNode }) {
       currentContainerId, setCurrentContainerId,
       currentUser,
       currentContainer,
+      currentBottleApi,
+      processingStartedAt,
       onPickStart,
     }),
     [
       inventory, dragging, dropArmed, lidOpen, scanning, reject,
       crushed, fillPct, bottlesProcessed,
-      activeStage, completed, currentBottle, aiResult,
+      activeStage, completed, currentBottle, currentBottleApi, aiResult,
       tokens, bumpKey, txLog,
       users, containers, currentUserId, currentContainerId, currentUser, currentContainer,
+      processingStartedAt,
       onPickStart,
     ],
   );

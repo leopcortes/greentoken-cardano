@@ -8,6 +8,10 @@ import * as rewardsDb from '../db/queries/rewards'
 import * as cardano from './cardano.service'
 import { validateUUID } from '../validate'
 
+// Compactação reduz a garrafa em 50% do volume original (fixo).
+const COMPACTION_REDUCTION = 0.5
+const COMPACTED_RATIO = 1 - COMPACTION_REDUCTION
+
 /**
  * Cria uma nova garrafa: gera nome automatico, verifica capacidade do container,
  * submete tx de mint e registra no banco.
@@ -27,13 +31,22 @@ export async function create(params: {
   const container = await containersDb.findById(containerId)
   if (!container) throw new Error(`Container não encontrado: ${containerId}`)
 
-  // Verifica capacidade do container (converte ml para litros)
+  // Valida contra o volume *após* a compactação (50% do original): o container
+  // só ocupa o volume final quando a tx de compactação confirma; durante a fase
+  // 'inserted' o volume armazenado não muda.
   const volumeLiters = params.volumeMl / 1000
-  const newVolume = container.current_volume_liters + volumeLiters
-  if (newVolume > container.capacity_liters) {
+  const projectedAfterCompaction =
+    container.current_volume_liters + volumeLiters * COMPACTED_RATIO
+  if (projectedAfterCompaction > container.capacity_liters) {
+    const used = container.current_volume_liters.toFixed(2)
+    const cap = container.capacity_liters.toFixed(2)
+    const maxBottleMl = Math.floor(
+      (container.capacity_liters - container.current_volume_liters) / COMPACTED_RATIO * 1000,
+    )
     throw new Error(
-      `Container sem capacidade: ${container.current_volume_liters}/${container.capacity_liters}L ` +
-      `(tentando adicionar ${params.volumeMl}ml)`,
+      `Container sem capacidade suficiente: ${used}L de ${cap}L ocupados. ` +
+      `Esta garrafa de ${params.volumeMl}ml não cabe nem após compactação ` +
+      `(máximo permitido agora: ${Math.max(0, maxBottleMl)}ml).`,
     )
   }
 
@@ -58,14 +71,7 @@ export async function create(params: {
     volume_ml: params.volumeMl,
   })
 
-  // 3. Atualiza volume do container
-  await containersDb.updateVolume(containerId, newVolume)
-  const fillPercent = (newVolume / container.capacity_liters) * 100
-  if (fillPercent >= 90 && container.status === 'active') {
-    await containersDb.updateStatus(containerId, 'ready_for_collection')
-  }
-
-  // 4. Registra a tx como pending
+  // 3. Registra a tx como pending
   const datumJson = JSON.stringify({
     "constructor": 0,
     "fields": [
@@ -82,6 +88,8 @@ export async function create(params: {
     datum_json: datumJson,
   })
 
+  // O volume do container só é atualizado quando a tx de compactação confirma
+  // (autoCompactBottle), garantindo que ele reflete o estado real (compactado).
   return { bottle, txHash }
 }
 
@@ -116,23 +124,22 @@ export async function autoCompactBottle(bottleId: string) {
     tx_hash: txHash,
   })
 
-  // Reduz o volume em 60%, 70% ou 80% do volume original (sorteado).
-  // Ex.: 2000ml com redução de 60% -> 800ml.
-  const reductionOptions = [0.6, 0.7, 0.8]
-  const reduction = reductionOptions[Math.floor(Math.random() * reductionOptions.length)]
-  const compactedVolumeMl = bottle.volume_ml * (1 - reduction)
-  const deltaLiters = (bottle.volume_ml - compactedVolumeMl) / 1000
+  // Ex.: 2000ml com redução de 50% -> 1000ml.
+  const compactedVolumeMl = bottle.volume_ml * COMPACTED_RATIO
+  const compactedLiters = compactedVolumeMl / 1000
 
   await bottlesDb.updateVolume(bottle.id, compactedVolumeMl)
 
+  // Volume do container só é incrementado agora (após compactar). Antes da
+  // compactação o container não reflete a garrafa recém-inserida.
   if (bottle.container_id) {
     const container = await containersDb.findById(bottle.container_id)
     if (container) {
-      const newVolume = Math.max(0, container.current_volume_liters - deltaLiters)
+      const newVolume = container.current_volume_liters + compactedLiters
       await containersDb.updateVolume(bottle.container_id, newVolume)
       const fillPercent = (newVolume / container.capacity_liters) * 100
-      if (fillPercent < 90 && container.status === 'ready_for_collection') {
-        await containersDb.updateStatus(bottle.container_id, 'active')
+      if (fillPercent >= 90 && container.status === 'active') {
+        await containersDb.updateStatus(bottle.container_id, 'ready_for_collection')
       }
     }
   }
@@ -140,7 +147,7 @@ export async function autoCompactBottle(bottleId: string) {
   // UTxO antigo foi consumido pela tx; novo UTxO sera preenchido apos confirmacao.
   await bottlesDb.clearUtxo(bottle.id)
 
-  return { bottleId: bottle.id, txHash, compactedVolumeMl, reduction }
+  return { bottleId: bottle.id, txHash, compactedVolumeMl, reduction: COMPACTION_REDUCTION }
 }
 
 /**

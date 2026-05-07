@@ -1,6 +1,44 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useStation } from './StationContext';
+
+function ProcessingTimerChip({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - startedAt) / 1000));
+  useEffect(() => {
+    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+  return (
+    <span
+      className="gt-chip"
+      style={{
+        background: 'var(--cdn-soft)',
+        borderColor: '#cdd9f3',
+        color: 'var(--cdn)',
+      }}
+      title="Aguardando confirmação on-chain"
+    >
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="animate-spin mr-1"
+        aria-hidden
+      >
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <span>Confirmando</span>
+      <span className="mono ml-1">{elapsed}s</span>
+    </span>
+  );
+}
 
 export function TopBar() {
+  const { bottlesProcessed, processingStartedAt } = useStation();
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -11,12 +49,16 @@ export function TopBar() {
           ₲
         </div>
         <div>
-          <div className="text-sm font-bold tracking-[-0.01em]">Greentoken Station</div>
-          <div className="text-[11px] text-ink-3">Container de reciclagem na blockchain Cardano</div>
+          <div className="text-md font-bold tracking-[-0.01em] leading-snug">Greentoken Station</div>
+          <div className="text-[12px] text-ink-3 leading-tight">Container de reciclagem na blockchain Cardano</div>
         </div>
       </div>
 
       <div className="flex gap-[10px] items-center">
+        {processingStartedAt !== null && <ProcessingTimerChip startedAt={processingStartedAt} />}
+        <span className="gt-chip gt-chip--ghost">
+          <span className="mono">{bottlesProcessed}</span> hoje
+        </span>
         <span className="gt-chip gt-chip--cdn">Cardano · preprod</span>
         <Link
           to="/dashboard"
