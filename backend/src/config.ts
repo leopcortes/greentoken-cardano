@@ -14,6 +14,8 @@ export const config = {
   CARDANO_NODE_MAGIC: requireEnv('CARDANO_NODE_MAGIC'),
   PROJECT_ROOT: process.env.PROJECT_ROOT || path.resolve(__dirname, '../..'),
   CONFIRMATION_POLL_MS: parseInt(process.env.CONFIRMATION_POLL_MS || '15000', 10),
+  BLOCKFROST_API_KEY: requireEnv('BLOCKFROST_API_KEY'),
+  WALLET_ENCRYPTION_KEY: requireEnv('WALLET_ENCRYPTION_KEY'),
 }
 
 // Caminhos derivados (relativos ao PROJECT_ROOT)

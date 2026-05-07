@@ -25,8 +25,7 @@ export async function create(params: {
   const userId = validateUUID(params.userId)
   const containerId = validateUUID(params.containerId)
 
-  const user = await usersDb.findById(userId)
-  if (!user) throw new Error(`Usuario não encontrado: ${userId}`)
+  const user = usersDb.requireWallet(await usersDb.findById(userId), userId)
 
   const container = await containersDb.findById(containerId)
   if (!container) throw new Error(`Container não encontrado: ${containerId}`)
@@ -107,8 +106,7 @@ export async function autoCompactBottle(bottleId: string) {
   if (bottle.current_stage !== 'inserted') return null
   if (!bottle.utxo_hash || bottle.utxo_index === null) return null
 
-  const user = await usersDb.findById(bottle.user_id)
-  if (!user) throw new Error(`Usuário da garrafa não encontrado: ${bottle.user_id}`)
+  const user = usersDb.requireWallet(await usersDb.findById(bottle.user_id), bottle.user_id)
 
   const txHash = await cardano.advanceStage({
     bottleId: bottle.bottle_id_text,
@@ -202,8 +200,9 @@ export async function collectContainer(containerId: string, routeId: string) {
       break
     }
 
-    const user = await usersDb.findById(bottle.user_id)
-    if (!user) continue
+    const userRow = await usersDb.findById(bottle.user_id)
+    if (!userRow || !userRow.wallet_address) continue
+    const user = userRow as usersDb.UserWithWallet
 
     try {
       const txHash = await cardano.advanceStage({
@@ -283,8 +282,9 @@ export async function deliverToStation(routeId: string, stationId: string) {
       break
     }
 
-    const user = await usersDb.findById(bottle.user_id)
-    if (!user) continue
+    const userRow = await usersDb.findById(bottle.user_id)
+    if (!userRow || !userRow.wallet_address) continue
+    const user = userRow as usersDb.UserWithWallet
 
     try {
       const txHash = await cardano.advanceStage({
@@ -335,8 +335,7 @@ export async function shredBottle(bottleId: string) {
     throw new Error('Garrafa não esta associada a nenhuma estação')
   }
 
-  const user = await usersDb.findById(bottle.user_id)
-  if (!user) throw new Error(`Usuario da garrafa não encontrado: ${bottle.user_id}`)
+  const user = usersDb.requireWallet(await usersDb.findById(bottle.user_id), bottle.user_id)
 
   let txHash: string | null = null
 
@@ -404,8 +403,9 @@ export async function shredStation(stationId: string) {
       break
     }
 
-    const user = await usersDb.findById(bottle.user_id)
-    if (!user) continue
+    const userRow = await usersDb.findById(bottle.user_id)
+    if (!userRow || !userRow.wallet_address) continue
+    const user = userRow as usersDb.UserWithWallet
 
     try {
       const txHash = await cardano.advanceStage({

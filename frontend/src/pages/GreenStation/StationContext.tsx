@@ -32,6 +32,7 @@ import {
   createBottle,
   getBottle,
   getContainers,
+  getGreenwalletBalance,
   getUserRewards,
   getUsers,
   type Bottle as ApiBottle,
@@ -88,6 +89,7 @@ interface StationState {
 
   tokens: number;
   setTokens: React.Dispatch<React.SetStateAction<number>>;
+  ada: string | null;
   bumpKey: number;
   setBumpKey: React.Dispatch<React.SetStateAction<number>>;
 
@@ -187,6 +189,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
   const [aiResult, setAiResult] = useState<AiResult>(null);
 
   const [tokens, setTokens] = useState(0);
+  const [ada, setAda] = useState<string | null>(null);
   const [bumpKey, setBumpKey] = useState(0);
 
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
@@ -256,17 +259,24 @@ export function StationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!currentUserId) {
       setTokens(0);
+      setAda(null);
       setTxLog([]);
       setRewards([]);
       return;
     }
     let alive = true;
-    getUserRewards(currentUserId)
-      .then((data) => {
+    Promise.all([
+      getUserRewards(currentUserId),
+      // Saldo on-chain via Blockfrost - fonte da verdade para tokens/ADA.
+      // Falha silenciosa cai para o saldo do DB (recompensas) abaixo.
+      getGreenwalletBalance(currentUserId).catch(() => null),
+    ])
+      .then(([rewardsData, balance]) => {
         if (!alive) return;
-        setTokens(data.total_greentoken);
-        setTxLog(data.rewards.map(rewardToTxLog));
-        setRewards(data.rewards);
+        setTokens(balance ? balance.greentoken : rewardsData.total_greentoken);
+        setAda(balance ? balance.ada : null);
+        setTxLog(rewardsData.rewards.map(rewardToTxLog));
+        setRewards(rewardsData.rewards);
         setBumpKey(0);
         setCompleted(new Set());
         setActiveStage(-1);
@@ -325,13 +335,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Refetch silencioso para reconciliar com o backend após cada confirmação.
+  // Tokens/ADA vem do saldo on-chain (Blockfrost); txLog vem do DB de rewards.
   const refetchRewards = async () => {
     if (!currentUserId) return;
     try {
-      const data = await getUserRewards(currentUserId);
-      setTokens(data.total_greentoken);
-      setTxLog(data.rewards.map(rewardToTxLog));
-      setRewards(data.rewards);
+      const [rewardsData, balance] = await Promise.all([
+        getUserRewards(currentUserId),
+        getGreenwalletBalance(currentUserId).catch(() => null),
+      ]);
+      setTokens(balance ? balance.greentoken : rewardsData.total_greentoken);
+      setAda(balance ? balance.ada : null);
+      setTxLog(rewardsData.rewards.map(rewardToTxLog));
+      setRewards(rewardsData.rewards);
     } catch {
       // erro silencioso - próxima confirmação tenta de novo
     }
@@ -643,6 +658,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       currentBottle, setCurrentBottle,
       aiResult, setAiResult,
       tokens, setTokens,
+      ada,
       bumpKey, setBumpKey,
       txLog, setTxLog,
       binRef, walletRef,
@@ -660,7 +676,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       inventory, dragging, dropArmed, lidOpen, scanning, reject,
       crushed, fillPct, bottlesProcessed,
       activeStage, completed, currentBottle, currentBottleApi, aiResult,
-      tokens, bumpKey, txLog,
+      tokens, ada, bumpKey, txLog,
       users, containers, currentUserId, currentContainerId, currentUser, currentContainer,
       processingStartedAt,
       onPickStart,

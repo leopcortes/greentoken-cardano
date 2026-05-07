@@ -28,8 +28,8 @@ export function CurrentWalletPage() {
             {currentUser?.name ?? 'Nenhum reciclador'}
           </div>
           <div className="mono text-[10px] mt-0.5 flex gap-1 items-center text-ink-4">
-            {currentUser ? truncMid(currentUser.wallet_address, 8, 6) : '-'}
-            {currentUser && <CopyButton value={currentUser.wallet_address} />}
+            {currentUser?.wallet_address ? truncMid(currentUser.wallet_address, 8, 6) : '-'}
+            {currentUser?.wallet_address && <CopyButton value={currentUser.wallet_address} />}
           </div>
         </div>
         <Select

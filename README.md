@@ -284,12 +284,12 @@ Aplicação web construída com **React + TypeScript + Vite + TailwindCSS v3 + s
 
 Simula a tela frontal do container Greentoken, visando o **reciclador**. Layout em 3 colunas:
 
-- **Esquerda** — `CurrentBottlePage` (etapas da garrafa atual: Validada IA → Inserida → Compactada) + `CurrentWalletPage` (saldo Greentoken, endereço Cardano truncado, tier Bronze/Prata/Ouro, últimas tx hashes)
-- **Centro** — `CurrentContainerPage` com SVG da lixeira (tampa animada, scan da IA, garrafas compactadas empilhadas, barra de volume com marker em 90%)
-- **Direita** — `InventoryPage` (20 itens fixos: garrafas PET/HDPE válidas + lata e vidro como itens inválidos)
+- **Esquerda** - `CurrentBottlePage` (etapas da garrafa atual: Validada IA → Inserida → Compactada) + `CurrentWalletPage` (saldo Greentoken, endereço Cardano truncado, tier Bronze/Prata/Ouro, últimas tx hashes)
+- **Centro** - `CurrentContainerPage` com SVG da lixeira (tampa animada, scan da IA, garrafas compactadas empilhadas, barra de volume com marker em 90%)
+- **Direita** - `InventoryPage` (20 itens fixos: garrafas PET/HDPE válidas + lata e vidro como itens inválidos)
 
 **Fluxo do drop:**
-1. Reciclador arrasta uma garrafa do inventário (direita) para o container (centro) — tampa abre no hover
+1. Reciclador arrasta uma garrafa do inventário (direita) para o container (centro) - tampa abre no hover
 2. IA do container scaneia (linha varrendo, ~900ms) → aceita PET/HDPE ou rejeita lata/vidro com shake vermelho + toast de erro
 3. Aceitação dispara `POST /bottles` no backend; o estado fica em "validating" até a confirmação on-chain
 4. Pipeline `inserted → compacted` é alimentado pelo polling de `GET /bottles/:id` (5s); cada confirmação dispara confete de tokens voando do container até a wallet, count-up no saldo e linha nova no log de transações

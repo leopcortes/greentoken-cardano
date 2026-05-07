@@ -6,6 +6,7 @@ import { UsersPage } from '@/pages/Dashboard/UsersPage';
 import { ContainersPage } from '@/pages/Dashboard/ContainersPage';
 import { RoutesPage } from '@/pages/Dashboard/RoutesPage';
 import { StationsPage } from '@/pages/Dashboard/StationsPage';
+import { GreenwalletsPage } from '@/pages/Dashboard/GreenwalletsPage';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
@@ -41,6 +42,7 @@ export function DashboardPage() {
             <TabsTrigger className='hover:bg-gray-50/60' value="containers">Containers</TabsTrigger>
             <TabsTrigger className='hover:bg-gray-50/60' value="routes">Rotas</TabsTrigger>
             <TabsTrigger className='hover:bg-gray-50/60' value="stations">Estações</TabsTrigger>
+            <TabsTrigger className='hover:bg-gray-50/60' value="wallets">Carteiras</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-4">
@@ -57,6 +59,9 @@ export function DashboardPage() {
           </TabsContent>
           <TabsContent value="stations" className="mt-4">
             <StationsPage />
+          </TabsContent>
+          <TabsContent value="wallets" className="mt-4">
+            <GreenwalletsPage />
           </TabsContent>
         </Tabs>
       </main>

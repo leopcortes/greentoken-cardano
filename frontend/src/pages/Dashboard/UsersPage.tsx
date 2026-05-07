@@ -13,6 +13,7 @@ import { SortableHeader } from '@/components/ui/sortable-header';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSortable } from '@/hooks/useSortable';
 import { getUsers, createUser, getUserRewards, type User, type Reward } from '@/services/api';
+import { UserCreatedSeedDialog } from './UserCreatedSeedPage';
 import { truncateMiddle } from '@/lib/truncate';
 import { ROLE_LABELS, STAGE_LABELS, t } from '@/lib/labels';
 
@@ -31,9 +32,9 @@ export function UsersPage() {
   const [nameError, setNameError] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [formAddress, setFormAddress] = useState('');
-  const [addressError, setAddressError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const [createdSeed, setCreatedSeed] = useState<{ name: string; address: string; mnemonic: string[] } | null>(null);
 
   const [rewardsUser, setRewardsUser] = useState<User | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -75,13 +76,6 @@ export function UsersPage() {
       setEmailError('');
     }
 
-    if (!formAddress.trim()) {
-      setAddressError('O endereço Cardano é obrigatório.');
-      hasError = true;
-    } else {
-      setAddressError('');
-    }
-
     if (hasError) return;
 
     setSubmitting(true);
@@ -90,7 +84,6 @@ export function UsersPage() {
         role: formRole,
         name: formName,
         email: formEmail,
-        wallet_address: formAddress,
       });
 
       toast.success(`Usuário "${user.name}" criado com sucesso.`, { duration: 5000 });
@@ -98,10 +91,15 @@ export function UsersPage() {
       setFormRole('recycler');
       setFormName('');
       setFormEmail('');
-      setFormAddress('');
       setNameError('');
       setEmailError('');
-      setAddressError('');
+      if (user.mnemonic && user.wallet_address) {
+        setCreatedSeed({
+          name: user.name,
+          address: user.wallet_address,
+          mnemonic: user.mnemonic,
+        });
+      }
       fetchUsers();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar usuário', { duration: 10000 });
@@ -195,26 +193,10 @@ export function UsersPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="user-address">
-                    Endereço Cardano<span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="user-address"
-                    value={formAddress}
-                    onChange={e => {
-                      setFormAddress(e.target.value);
-                      if (addressError) setAddressError('');
-                    }}
-                    placeholder="addr_test1abcdefghijklmnopqrstuvwxyz..."
-                    className={addressError ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                  />
-                  {addressError && (
-                    <p className="text-sm font-medium text-red-500">{addressError}</p>
-                  )}
-                </div>
                 <p className="text-xs text-muted-foreground">
-                  O pubkey hash será calculado automaticamente a partir do endereço.
+                  Uma greenwallet (Cardano) será gerada automaticamente para este
+                  usuário. A frase de recuperação de 24 palavras será exibida{' '}
+                  <strong>uma única vez</strong> após a criação - anote-a com cuidado.
                 </p>
                 <Button type="submit" disabled={submitting} className="w-full">
                   {submitting ? 'Criando...' : 'Criar'}
@@ -263,10 +245,14 @@ export function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-0.5 min-w-0">
-                        <span className="font-mono text-xs">{truncateMiddle(user.wallet_address, 30, 10)}</span>
-                      <CopyButton className='ml-1' value={user.wallet_address} />
-                    </div>
+                    {user.wallet_address ? (
+                      <div className="flex items-center gap-0.5 min-w-0">
+                          <span className="font-mono text-xs">{truncateMiddle(user.wallet_address, 30, 10)}</span>
+                        <CopyButton className='ml-1' value={user.wallet_address} />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">sem greenwallet</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {new Date(user.created_at).toLocaleDateString('pt-BR')}
@@ -289,6 +275,11 @@ export function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <UserCreatedSeedDialog
+        data={createdSeed}
+        onClose={() => setCreatedSeed(null)}
+      />
 
       <Dialog open={!!rewardsUser} onOpenChange={() => setRewardsUser(null)}>
         <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>

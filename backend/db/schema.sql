@@ -2,14 +2,21 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- recyclers e owner
+-- A greenwallet (mnemonica + endereco) e gerada no backend ao criar
+-- usuarios novos. wallet_address/pubkey_hash sao NULL apenas para users
+-- legados criados antes da migracao 002 (sem greenwallet).
 CREATE TABLE users (
-  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  role           VARCHAR(10) NOT NULL CHECK (role IN ('recycler', 'owner')),
-  name           VARCHAR(255) NOT NULL,
-  email          VARCHAR(255) UNIQUE NOT NULL,
-  wallet_address VARCHAR(255) NOT NULL,
-  pubkey_hash    VARCHAR(255) NOT NULL,
-  created_at     TIMESTAMP   NOT NULL DEFAULT NOW()
+  id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  role                   VARCHAR(10) NOT NULL CHECK (role IN ('recycler', 'owner')),
+  name                   VARCHAR(255) NOT NULL,
+  email                  VARCHAR(255) UNIQUE NOT NULL,
+  wallet_address         VARCHAR(255),
+  pubkey_hash            VARCHAR(255),
+  mnemonic_ciphertext    BYTEA,
+  mnemonic_iv            BYTEA,
+  mnemonic_auth_tag      BYTEA,
+  encryption_key_version SMALLINT,
+  created_at             TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
 -- Cada container pertence a um owner

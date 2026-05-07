@@ -14,9 +14,9 @@ function ProcessingTimerChip({ startedAt }: { startedAt: number }) {
     <span
       className="gt-chip"
       style={{
-        background: 'var(--cdn-soft)',
-        borderColor: '#cdd9f3',
-        color: 'var(--cdn)',
+        background: 'var(--warn-soft)',
+        borderColor: 'var(--err-soft)',
+        color: 'var(--warn)',
       }}
       title="Aguardando confirmação on-chain"
     >
