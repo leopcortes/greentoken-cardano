@@ -2,7 +2,7 @@ import * as txsDb from '../db/queries/blockchain-txs'
 import * as bottlesDb from '../db/queries/bottles'
 import * as rewardsDb from '../db/queries/rewards'
 import { REWARDS_BY_STAGE } from '../db/queries/rewards'
-import { isUtxoOnChain } from '../services/cardano.service'
+import { isUtxoOnChain, allocateOperatorUtxos } from '../services/cardano.service'
 import * as bottleService from '../services/bottle.service'
 import { config } from '../config'
 
@@ -49,25 +49,44 @@ async function processTransaction(tx: txsDb.BlockchainTx): Promise<void> {
 /**
  * Para cada garrafa recém-validada (stage='inserted' com UTxO confirmado),
  * dispara automaticamente a tx de compactação individual no smart contract.
- * Repassa erros pontuais (p.ex. UTxO do operador indisponível) - a próxima
- * iteração do worker tentará novamente.
+ * Submete em paralelo com UTxOs do operador pré-alocados (um por garrafa) para
+ * evitar contenção. Falhas individuais não abortam o batch — a próxima iteração
+ * do worker tentará novamente as garrafas que ficaram para trás.
  */
 async function autoCompactPending(): Promise<void> {
   const ready = await bottlesDb.findReadyForAutoCompact()
   if (ready.length === 0) return
 
-  console.log(`[worker] Auto-compactando ${ready.length} garrafa(s) recém-validada(s)...`)
-
-  for (const bottle of ready) {
-    try {
-      const result = await bottleService.autoCompactBottle(bottle.id)
-      if (result) {
-        console.log(`[worker] Auto-compactação enviada - garrafa ${bottle.bottle_id_text} → tx ${result.txHash}`)
-      }
-    } catch (err) {
-      console.error(`[worker] Erro ao auto-compactar garrafa ${bottle.bottle_id_text}:`, err)
-    }
+  const operatorUtxos = await allocateOperatorUtxos(ready.length, 4_000_000)
+  if (operatorUtxos.length === 0) {
+    console.warn(`[worker] Sem UTxO do operador disponível — adiando ${ready.length} auto-compactação(ões) para o próximo ciclo.`)
+    return
   }
+
+  const batchSize = Math.min(ready.length, operatorUtxos.length)
+  if (batchSize < ready.length) {
+    console.warn(`[worker] Apenas ${batchSize} UTxO(s) do operador para ${ready.length} garrafa(s). Restante será processado no próximo ciclo.`)
+  }
+
+  console.log(`[worker] Auto-compactando ${batchSize} garrafa(s) em paralelo...`)
+
+  const batch = ready.slice(0, batchSize)
+  const results = await Promise.allSettled(
+    batch.map((bottle, i) =>
+      bottleService.autoCompactBottle(bottle.id, operatorUtxos[i].txIn),
+    ),
+  )
+
+  results.forEach((r, i) => {
+    const bottle = batch[i]
+    if (r.status === 'fulfilled') {
+      if (r.value) {
+        console.log(`[worker] Auto-compactação enviada - garrafa ${bottle.bottle_id_text} → tx ${r.value.txHash}`)
+      }
+    } else {
+      console.error(`[worker] Erro ao auto-compactar garrafa ${bottle.bottle_id_text}:`, r.reason)
+    }
+  })
 }
 
 /**

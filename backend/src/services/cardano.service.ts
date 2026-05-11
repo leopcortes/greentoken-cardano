@@ -121,12 +121,53 @@ export async function findOperatorUtxos(minLovelace: number): Promise<{ txIn: st
   return results
 }
 
-async function findOperatorUtxo(minLovelace: number): Promise<{ txIn: string; lovelace: number }> {
-  const utxos = await findOperatorUtxos(minLovelace)
-  if (utxos.length === 0) {
-    throw new Error(`Nenhum UTxO ADA-only >= ${minLovelace} lovelace encontrado no operador`)
+// -------------------------------------------------------------------
+// Operator UTxO allocation pool
+// -------------------------------------------------------------------
+// Submissões concorrentes podem disputar o mesmo UTxO do operador (a query
+// on-chain reflete um estado consistente, mas duas chamadas próximas vêem o
+// mesmo set antes de qualquer tx ser submetida). Para evitar colisão:
+//   - mutex serializa a SELEÇÃO (a submissão fica paralela)
+//   - reserva em memória marca UTxOs já alocados por um TTL longo o suficiente
+//     pra tx atingir o nó (após isso a query on-chain já não retorna o UTxO).
+
+const RESERVATION_TTL_MS = 60_000
+const reservedTxIns = new Set<string>()
+let allocLock: Promise<void> = Promise.resolve()
+
+// Aloca até `count` UTxOs do operador (pode retornar menos se houver escassez —
+// callers em batch tratam best-effort; callers singulares devem checar o tamanho
+// do array ou usar allocateOperatorUtxo).
+export async function allocateOperatorUtxos(
+  count: number,
+  minLovelace: number,
+): Promise<{ txIn: string; lovelace: number }[]> {
+  let release!: () => void
+  const next = new Promise<void>(resolve => { release = resolve })
+  const prev = allocLock
+  allocLock = next
+  await prev
+
+  try {
+    const all = await findOperatorUtxos(minLovelace)
+    const available = all.filter(u => !reservedTxIns.has(u.txIn))
+    const allocated = available.slice(0, count)
+    for (const u of allocated) {
+      reservedTxIns.add(u.txIn)
+      setTimeout(() => reservedTxIns.delete(u.txIn), RESERVATION_TTL_MS).unref()
+    }
+    return allocated
+  } finally {
+    release()
   }
-  return utxos[0]
+}
+
+async function allocateOperatorUtxo(minLovelace: number): Promise<{ txIn: string; lovelace: number }> {
+  const [utxo] = await allocateOperatorUtxos(1, minLovelace)
+  if (!utxo) {
+    throw new Error(`Nenhum UTxO do operador disponível (>= ${minLovelace} lovelace)`)
+  }
+  return utxo
 }
 
 // -------------------------------------------------------------------
@@ -186,7 +227,7 @@ export async function createBottle(params: {
   const datumFile = path.join(paths.datumDir, bottleId, `datum-${bottleId}-inserted.json`)
   const mintRedeemerFile = path.join(paths.redeemerDir, 'mint-inserted.json')
 
-  const { txIn } = await findOperatorUtxo(5_000_000)
+  const { txIn } = await allocateOperatorUtxo(5_000_000)
 
   await fs.mkdir(paths.txDir, { recursive: true })
   const bodyFile = path.join(paths.txDir, `mint-bottle-${bottleId}.body`)
@@ -261,7 +302,7 @@ export async function advanceStage(params: {
   await fs.access(redeemerFile)
   await fs.access(mintRedeemerFile)
 
-  const collateralTxIn = params.operatorTxIn ?? (await findOperatorUtxo(4_000_000)).txIn
+  const collateralTxIn = params.operatorTxIn ?? (await allocateOperatorUtxo(4_000_000)).txIn
   const bottleTxIn = `${utxoHash}#${utxoIndex}`
 
   await fs.mkdir(paths.txDir, { recursive: true })

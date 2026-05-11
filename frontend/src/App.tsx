@@ -5,6 +5,7 @@ import { CurrentBottlePage } from './pages/GreenStation/CurrentBottlePage';
 import { CurrentWalletPage } from './pages/GreenStation/CurrentWalletPage';
 import { CurrentContainerPage } from './pages/GreenStation/CurrentContainerPage';
 import { InventoryPage } from './pages/GreenStation/InventoryPage';
+import { PipelinePanel } from './pages/GreenStation/PipelinePanel';
 import { StationProvider } from './pages/GreenStation/StationContext';
 import { TopBar } from './pages/GreenStation/TopBar';
 
@@ -26,8 +27,11 @@ function HomePage() {
             <CurrentContainerPage />
           </div>
 
-          <div className="lg:col-span-3 lg:min-h-0 min-h-[420px]">
-            <InventoryPage />
+          <div className="flex flex-col gap-4 lg:col-span-3 lg:min-h-0 min-h-[420px]">
+            <div className="flex-1 min-h-0">
+              <InventoryPage />
+            </div>
+            <PipelinePanel />
           </div>
         </main>
       </div>
@@ -43,7 +47,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
       </Routes>
 
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="bottom-center" richColors closeButton />
     </BrowserRouter>
   );
 }

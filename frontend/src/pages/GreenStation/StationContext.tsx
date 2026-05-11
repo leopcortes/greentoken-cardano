@@ -113,7 +113,20 @@ interface StationState {
 
   processingStartedAt: number | null;
 
+  inFlight: InFlightBottle[];
+
   onPickStart: (bottle: InventoryBottleData, meta: PickMeta) => void;
+}
+
+export interface InFlightBottle {
+  backendId: string;
+  bottleIdText: string;
+  inventoryId: string;
+  phase: 'inserted' | 'compacted';
+  enqueuedAt: number;
+  compactingAt: number | null;
+  insertedTxHash: string | null;
+  compactedTxHash: string | null;
 }
 
 const StationCtx = createContext<StationState | null>(null);
@@ -121,15 +134,8 @@ const StationCtx = createContext<StationState | null>(null);
 const SCAN_MS = 900;
 const REJECT_HOLD_MS = 700;
 const CONFETTI_MS = 800;
-const POLL_MS = 5_000;
+const POLL_MS = 2_000;
 const MAX_WAIT_MS = 5 * 60_000;
-
-interface PendingBottle {
-  backendId: string;
-  inventoryId: string;
-  phase: 'inserted' | 'compacted';
-  startedAt: number;
-}
 
 // Erros do backend chegam no formato `"<status>: <body>"` (api.ts), e o body
 // frequentemente é `{"error":"..."}`. Extrai a mensagem legível para o toast.
@@ -149,7 +155,7 @@ function humanizeApiError(err: unknown, fallback: string): string {
 }
 
 export function StationProvider({ children }: { children: ReactNode }) {
-  const [inventory, setInventory] = useState<InventoryBottleData[]>(() => buildInventory(7, 20));
+  const [inventory, setInventory] = useState<InventoryBottleData[]>(() => buildInventory(7, 16));
 
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [dropArmed, setDropArmed] = useState(false);
@@ -206,8 +212,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   const handleDropRef = useRef<(b: InventoryBottleData) => void>(() => {});
   const pollRef = useRef<() => Promise<void>>(async () => {});
-  const pendingBottleRef = useRef<PendingBottle | null>(null);
+  const [inFlight, setInFlight] = useState<InFlightBottle[]>([]);
+  const inFlightRef = useRef<InFlightBottle[]>([]);
+  inFlightRef.current = inFlight;
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const schedulePoll = useCallback(() => {
+    if (pollingTimerRef.current) return;
+    pollingTimerRef.current = window.setTimeout(() => {
+      pollingTimerRef.current = null;
+      pollRef.current();
+    }, POLL_MS);
+  }, []);
 
   useEffect(() => () => {
     if (pollingTimerRef.current) {
@@ -361,54 +377,65 @@ export function StationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Polling de confirmação on-chain. Reatribuído a cada render para capturar
-  // o estado fresco (currentContainer, currentUserId, etc.) sem reiniciar o timer.
+  // Polling paralelo: a cada ciclo, busca todas as garrafas em voo de uma vez
+  // (Promise.allSettled) e processa cada confirmação independente. Reatribuído
+  // a cada render para capturar estado fresco sem reiniciar o timer.
   pollRef.current = async () => {
-    const pending = pendingBottleRef.current;
-    if (!pending) return;
+    const list = inFlightRef.current;
+    if (list.length === 0) return;
 
-    if (Date.now() - pending.startedAt > MAX_WAIT_MS) {
-      pendingBottleRef.current = null;
-      pollingTimerRef.current = null;
-      toast.warning(
-        'Confirmação on-chain está demorando demais - verifique em /dashboard/bottles.',
-        { duration: 12000 },
-      );
-      setActiveStage(-1);
-      setProcessingStartedAt(null);
-      replaceInventoryBottle(pending.inventoryId);
-      return;
-    }
+    const results = await Promise.allSettled(list.map((b) => getBottle(b.backendId)));
 
-    try {
-      const { bottle: remote, txs } = await getBottle(pending.backendId);
-      // Fonte da verdade: blockchain_txs (status='confirmed'). O campo
-      // bottles.utxo_hash é zerado durante autoCompact e não é confiável para
-      // detectar a confirmação da inserção; current_stage só muda quando a
-      // compactação confirma.
-      const insertedConfirmed = txs.some(
-        (t) => t.stage === 'inserted' && t.status === 'confirmed',
-      );
-      const compactedConfirmed = txs.some(
-        (t) => t.stage === 'compacted' && t.status === 'confirmed',
-      );
+    let rewardsTouched = false;
+    let containersTouched = false;
+    const next: InFlightBottle[] = [];
 
-      let phase = pending.phase;
+    for (let i = 0; i < list.length; i++) {
+      const bottle = list[i];
+      const result = results[i];
 
-      if (phase === 'inserted' && insertedConfirmed) {
+      // Timeout por fase: 5 min desde enqueue (inserted) ou desde compactingAt (compacted).
+      const phaseStart = bottle.phase === 'compacted' && bottle.compactingAt != null
+        ? bottle.compactingAt
+        : bottle.enqueuedAt;
+      const timedOut = Date.now() - phaseStart > MAX_WAIT_MS;
+
+      if (result.status !== 'fulfilled') {
+        // Erro de rede transiente: mantém, retenta no próximo ciclo (a menos que tenha esgotado).
+        if (timedOut) {
+          toast.warning(
+            `Confirmação de ${bottle.bottleIdText} demorando demais — verifique em /dashboard/bottles.`,
+            { duration: 12000 },
+          );
+          replaceInventoryBottle(bottle.inventoryId);
+          if (currentBottleApi?.id === bottle.backendId) {
+            setActiveStage(-1);
+            setProcessingStartedAt(null);
+          }
+          continue;
+        }
+        next.push(bottle);
+        continue;
+      }
+
+      const { bottle: remote, txs } = result.value;
+      const insertedTx = txs.find((t) => t.stage === 'inserted' && t.status === 'confirmed');
+      const compactedTx = txs.find((t) => t.stage === 'compacted' && t.status === 'confirmed');
+      const isCurrent = currentBottleApi?.id === bottle.backendId;
+
+      let phase = bottle.phase;
+      let compactingAt = bottle.compactingAt;
+      let insertedTxHash = bottle.insertedTxHash;
+      let compactedTxHash = bottle.compactedTxHash;
+
+      if (phase === 'inserted' && insertedTx) {
         const stage = STAGES[0];
-        const insertedTx = txs.find((t) => t.stage === 'inserted' && t.status === 'confirmed');
-        setCompleted((s) => {
-          const n = new Set(s);
-          n.add('inserted');
-          return n;
-        });
         setTokens((t) => t + stage.reward);
         setBumpKey((k) => k + 1);
         setTxLog((log) => [
           {
             id: `tx-opt-i-${remote.id}`,
-            hash: insertedTx?.tx_hash ?? '',
+            hash: insertedTx.tx_hash ?? '',
             label: stage.label,
             reward: stage.reward,
             datetime: fmtDateTime(new Date().toISOString()),
@@ -417,36 +444,36 @@ export function StationProvider({ children }: { children: ReactNode }) {
         ]);
         triggerConfetti(2);
         playCoinReward();
-        setActiveStage(1);
-        setLidOpen(false);
+        if (isCurrent) {
+          setCompleted((s) => {
+            const n = new Set(s);
+            n.add('inserted');
+            return n;
+          });
+          setActiveStage(1);
+          setLidOpen(false);
+        }
         setCrushed((c) => c + 1);
         toast.success(
-          'Inserção confirmada on-chain - garrafa está sendo compactada…',
+          `${bottle.bottleIdText}: inserção confirmada — compactando…`,
           { duration: 3000 },
         );
-        void refetchRewards();
-        void refetchContainers();
-        // Reseta startedAt para que a janela de timeout seja por fase, não cumulativa.
-        pendingBottleRef.current = { ...pending, phase: 'compacted', startedAt: Date.now() };
+        rewardsTouched = true;
+        containersTouched = true;
         phase = 'compacted';
+        compactingAt = Date.now();
+        insertedTxHash = insertedTx.tx_hash ?? null;
       }
 
-      // Sem `else`: se ambas confirmações já estão prontas no mesmo poll
-      // (ex.: FE perdeu uma janela), processa as duas em sequência.
-      if (phase === 'compacted' && compactedConfirmed) {
+      // Sem `else`: se ambas confirmações estão prontas no mesmo poll, processa as duas.
+      if (phase === 'compacted' && compactedTx) {
         const stage = STAGES[1];
-        const compactedTx = txs.find((t) => t.stage === 'compacted' && t.status === 'confirmed');
-        setCompleted((s) => {
-          const n = new Set(s);
-          n.add('compacted');
-          return n;
-        });
         setTokens((t) => t + stage.reward);
         setBumpKey((k) => k + 1);
         setTxLog((log) => [
           {
             id: `tx-opt-c-${remote.id}`,
-            hash: compactedTx?.tx_hash ?? '',
+            hash: compactedTx.tx_hash ?? '',
             label: stage.label,
             reward: stage.reward,
             datetime: fmtDateTime(new Date().toISOString()),
@@ -455,20 +482,44 @@ export function StationProvider({ children }: { children: ReactNode }) {
         ]);
         triggerConfetti(3);
         playCoinReward();
-        setActiveStage(-1);
-        setProcessingStartedAt(null);
-        replaceInventoryBottle(pending.inventoryId);
-        void refetchRewards();
-        void refetchContainers();
-        pendingBottleRef.current = null;
-        pollingTimerRef.current = null;
-        return;
+        if (isCurrent) {
+          setCompleted((s) => {
+            const n = new Set(s);
+            n.add('compacted');
+            return n;
+          });
+          setActiveStage(-1);
+          setProcessingStartedAt(null);
+        }
+        rewardsTouched = true;
+        containersTouched = true;
+        compactedTxHash = compactedTx.tx_hash ?? null;
+        // garrafa finalizou o pipeline — não re-adicionar a `next`.
+        continue;
       }
-    } catch {
-      // erro de rede transiente - apenas reagenda
+
+      if (timedOut) {
+        toast.warning(
+          `Compactação de ${bottle.bottleIdText} demorando demais — verifique em /dashboard/bottles.`,
+          { duration: 12000 },
+        );
+        replaceInventoryBottle(bottle.inventoryId);
+        if (isCurrent) {
+          setActiveStage(-1);
+          setProcessingStartedAt(null);
+        }
+        continue;
+      }
+
+      next.push({ ...bottle, phase, compactingAt, insertedTxHash, compactedTxHash });
     }
 
-    pollingTimerRef.current = window.setTimeout(() => pollRef.current(), POLL_MS);
+    setInFlight(next);
+
+    if (rewardsTouched) void refetchRewards();
+    if (containersTouched) void refetchContainers();
+
+    if (next.length > 0) schedulePoll();
   };
 
   // Atualizado a cada render para capturar estado fresco; a referência estável é
@@ -549,15 +600,25 @@ export function StationProvider({ children }: { children: ReactNode }) {
           },
         );
 
-        // Volume só atualiza após inserted/compacted confirmados (via refetch no polling).
-        pendingBottleRef.current = {
-          backendId: result.bottle.id,
-          inventoryId: b.id,
-          phase: 'inserted',
-          startedAt: Date.now(),
-        };
-        if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
-        pollingTimerRef.current = window.setTimeout(() => pollRef.current(), POLL_MS);
+        // Enfileira no pipeline: a partir daqui o usuário pode arrastar outra
+        // garrafa enquanto esta confirma e compacta em background.
+        setInFlight((list) => [
+          ...list,
+          {
+            backendId: result.bottle.id,
+            bottleIdText: result.bottle.bottle_id_text,
+            inventoryId: b.id,
+            phase: 'inserted',
+            enqueuedAt: Date.now(),
+            compactingAt: null,
+            insertedTxHash: result.tx_hash ?? null,
+            compactedTxHash: null,
+          },
+        ]);
+        // Slot do inventário libera imediatamente — a garrafa já está "no
+        // container" do ponto de vista do usuário.
+        replaceInventoryBottle(b.id);
+        schedulePoll();
       })
       .catch(async (err) => {
         await waitScan();
@@ -576,9 +637,11 @@ export function StationProvider({ children }: { children: ReactNode }) {
       });
   };
 
+  const scanningRef = useRef(false);
+  scanningRef.current = scanning;
   const onPickStart = useCallback(
     (b: InventoryBottleData, meta: PickMeta) => {
-      if (activeStage >= 0 || draggingRef.current) return;
+      if (scanningRef.current || draggingRef.current) return;
       document.body.classList.add('gt-dragging');
       setDragging({
         bottle: b,
@@ -589,7 +652,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       });
       setDropArmed(false);
     },
-    [activeStage],
+    [],
   );
 
   // Listeners globais para arrastar a garrafa (mount-once).
@@ -670,6 +733,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       currentContainer,
       currentBottleApi,
       processingStartedAt,
+      inFlight,
       onPickStart,
     }),
     [
@@ -679,6 +743,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       tokens, ada, bumpKey, txLog,
       users, containers, currentUserId, currentContainerId, currentUser, currentContainer,
       processingStartedAt,
+      inFlight,
       onPickStart,
     ],
   );

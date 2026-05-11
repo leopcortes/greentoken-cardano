@@ -15,9 +15,11 @@ export function CurrentWalletPage() {
   const {
     tokens, bumpKey, txLog, walletRef,
     users, currentUser, currentUserId, setCurrentUserId,
-    activeStage,
+    activeStage, inFlight,
   } = useStation();
-  const pipelineBusy = activeStage >= 0;
+  // Bloqueia troca de reciclador enquanto há garrafas em voo (as confirmações
+  // pendentes pertencem ao usuário atual).
+  const pipelineBusy = activeStage >= 0 || inFlight.length > 0;
 
   return (
     <div ref={walletRef} className="gt-card p-[18px] flex-1 flex min-h-0 flex-col">

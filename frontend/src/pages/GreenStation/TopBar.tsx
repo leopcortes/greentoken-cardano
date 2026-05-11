@@ -55,7 +55,7 @@ export function TopBar() {
       </div>
 
       <div className="flex gap-[10px] items-center">
-        {processingStartedAt !== null && <ProcessingTimerChip startedAt={processingStartedAt} />}
+        {/* {processingStartedAt !== null && <ProcessingTimerChip startedAt={processingStartedAt} />} */}
         <span className="gt-chip gt-chip--ghost">
           <span className="mono">{bottlesProcessed}</span> hoje
         </span>

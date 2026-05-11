@@ -3,8 +3,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useStation } from './StationContext';
 
 export function InventoryPage() {
-  const { inventory, dragging, activeStage, onPickStart } = useStation();
-  const disabled = !!dragging || activeStage >= 0;
+  const { inventory, dragging, scanning, onPickStart } = useStation();
+  // Bloqueia apenas durante a validação da IA (~1s). Após POST retornar, a
+  // garrafa vai para o pipeline em background e o usuário já pode arrastar outra.
+  const disabled = !!dragging || scanning;
 
   return (
     <TooltipProvider delayDuration={150} skipDelayDuration={0}>

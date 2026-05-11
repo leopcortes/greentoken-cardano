@@ -23,9 +23,12 @@ export function CurrentContainerPage() {
   const {
     binRef, dropArmed, lidOpen, scanning, fillPct, crushed, activeStage,
     containers, currentContainer, currentContainerId, setCurrentContainerId,
+    inFlight,
   } = useStation();
 
-  const pipelineBusy = activeStage >= 0;
+  // Trocar de container durante o pipeline orfaniza confirmações que chegam
+  // depois. Bloqueia enquanto houver garrafas em voo ou validação em andamento.
+  const pipelineBusy = activeStage >= 0 || inFlight.length > 0;
   const collectReady = fillPct >= 90;
   const readyForCollection = currentContainer?.status === 'ready_for_collection';
   const handleCollect = () => {
@@ -116,7 +119,16 @@ export function CurrentContainerPage() {
 
       <div className="mt-[18px] text-xs text-ink-3 text-center max-w-[320px]">
         {activeStage >= 0 ? (
-          <span>Processando… <strong className="text-gt-700">{STAGES[activeStage]?.label}</strong></span>
+          <span>
+            Processando… <strong className="text-gt-700">{STAGES[activeStage]?.label}</strong>
+            {inFlight.length > 1 && (
+              <span className="text-ink-4"> · +{inFlight.length - 1} no pipeline</span>
+            )}
+          </span>
+        ) : inFlight.length > 0 ? (
+          <span>
+            <strong className="text-gt-700">{inFlight.length}</strong> garrafa(s) confirmando on-chain — arraste outra para enfileirar.
+          </span>
         ) : (
           'Arraste uma garrafa do inventário.'
         )}

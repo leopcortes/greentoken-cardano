@@ -98,7 +98,7 @@ export async function create(params: {
  * registra o blockchain_tx pendente e limpa o UTxO atual da garrafa (será
  * preenchido novamente pelo worker quando a tx de compactação for confirmada).
  */
-export async function autoCompactBottle(bottleId: string) {
+export async function autoCompactBottle(bottleId: string, operatorTxIn?: string) {
   const id = validateUUID(bottleId)
 
   const bottle = await bottlesDb.findById(id)
@@ -114,6 +114,7 @@ export async function autoCompactBottle(bottleId: string) {
     userAddr: user.wallet_address,
     utxoHash: bottle.utxo_hash,
     utxoIndex: bottle.utxo_index,
+    operatorTxIn,
   })
 
   await txsDb.create({
@@ -186,7 +187,7 @@ export async function collectContainer(containerId: string, routeId: string) {
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
   if (operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
@@ -268,7 +269,7 @@ export async function deliverToStation(routeId: string, stationId: string) {
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
   if (operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
@@ -389,7 +390,7 @@ export async function shredStation(stationId: string) {
   }
 
   // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.findOperatorUtxos(4_000_000)
+  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
   if (operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
