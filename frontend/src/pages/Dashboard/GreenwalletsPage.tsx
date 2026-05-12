@@ -624,7 +624,7 @@ export function GreenwalletsPage() {
             <BalanceCard
               kind="ada"
               value={hideBalance ? '••••' : fmtNumber(adaValue, 2)}
-              sub={`${fmtNumber(adaValue * 1_000_000, 0)} lovelace · taxas e min-UTXO`}
+              sub={`= ${fmtNumber(adaValue * 1_000_000, 0)} lovelace`}
               badge={<span className="gt-chip gt-chip--cdn">on-chain</span>}
               onPrimary={() => setQrOpen(true)}
               primaryLabel="Receber"

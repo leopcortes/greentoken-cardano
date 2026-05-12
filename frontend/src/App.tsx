@@ -35,6 +35,7 @@ function HomePage() {
           </div>
         </main>
       </div>
+      <Toaster position="bottom-center" richColors closeButton />
     </StationProvider>
   );
 }
@@ -46,8 +47,6 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
       </Routes>
-
-      <Toaster position="bottom-center" richColors closeButton />
     </BrowserRouter>
   );
 }

@@ -12,7 +12,7 @@ import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSortable } from '@/hooks/useSortable';
-import { getUsers, createUser, getUserRewards, type User, type Reward } from '@/services/api';
+import { getUsers, createUser, getUserRewards, getGreenwalletBalance, type User, type Reward } from '@/services/api';
 import { UserCreatedSeedDialog } from './UserCreatedSeedPage';
 import { truncateMiddle } from '@/lib/truncate';
 import { ROLE_LABELS, STAGE_LABELS, t } from '@/lib/labels';
@@ -39,6 +39,7 @@ export function UsersPage() {
   const [rewardsUser, setRewardsUser] = useState<User | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [totalGreentoken, setTotalGreentoken] = useState(0);
+  const [onchainBalance, setOnchainBalance] = useState<number | null>(null);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSortable<User>(users);
 
@@ -110,9 +111,13 @@ export function UsersPage() {
 
   const handleViewRewards = async (user: User) => {
     try {
-      const data = await getUserRewards(user.id);
+      const [data, balance] = await Promise.all([
+        getUserRewards(user.id),
+        user.wallet_address ? getGreenwalletBalance(user.id).catch(() => null) : Promise.resolve(null),
+      ]);
       setRewards(data.rewards);
       setTotalGreentoken(data.total_greentoken);
+      setOnchainBalance(balance ? balance.greentoken : null);
       setRewardsUser(user);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar recompensas', { duration: 10000 });
@@ -281,14 +286,23 @@ export function UsersPage() {
         onClose={() => setCreatedSeed(null)}
       />
 
-      <Dialog open={!!rewardsUser} onOpenChange={() => setRewardsUser(null)}>
+      <Dialog open={!!rewardsUser} onOpenChange={() => { setRewardsUser(null); setOnchainBalance(null); }}>
         <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className='text-xl'>Recompensas - {rewardsUser?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <span className="text-green-600">Total: {totalGreentoken} Greentoken</span>
+            <div className="flex items-center gap-3 text-lg font-semibold flex-wrap">
+              {onchainBalance !== null ? (
+                <>
+                  <span className="text-green-600">Total on-chain: {onchainBalance} Greentoken</span>
+                  {onchainBalance !== totalGreentoken && (
+                    <span className="text-xs font-normal text-muted-foreground">(DB: {totalGreentoken})</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-green-600">Total: {totalGreentoken} Greentoken</span>
+              )}
             </div>
             {rewards.length > 0 ? (
               <Table>

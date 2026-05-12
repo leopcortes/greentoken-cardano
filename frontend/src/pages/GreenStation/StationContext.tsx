@@ -155,7 +155,7 @@ function humanizeApiError(err: unknown, fallback: string): string {
 }
 
 export function StationProvider({ children }: { children: ReactNode }) {
-  const [inventory, setInventory] = useState<InventoryBottleData[]>(() => buildInventory(7, 16));
+  const [inventory, setInventory] = useState<InventoryBottleData[]>(() => buildInventory(7, 12));
 
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [dropArmed, setDropArmed] = useState(false);

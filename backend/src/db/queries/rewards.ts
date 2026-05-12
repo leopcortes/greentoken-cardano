@@ -55,14 +55,16 @@ export async function create(data: {
   stage: string
   greentoken_amount: number
   tx_hash?: string
-}): Promise<Reward> {
+}): Promise<Reward | null> {
   const { rows } = await pool.query(
     `INSERT INTO rewards (user_id, bottle_id, tx_id, stage, greentoken_amount, tx_hash)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (bottle_id, stage) DO NOTHING
+     RETURNING *`,
     [data.user_id, data.bottle_id, data.tx_id ?? null,
      data.stage, data.greentoken_amount, data.tx_hash ?? null],
   )
-  return rows[0]
+  return rows[0] ?? null
 }
 
 export async function totalByUser(userId: string): Promise<number> {

@@ -73,13 +73,6 @@ export function makeInvalidReplacement(kind: 'can' | 'glass'): InventoryBottleDa
   };
 }
 
-export function fakeTxHash(): string {
-  const hex = '0123456789abcdef';
-  let h = '';
-  for (let i = 0; i < 64; i++) h += hex[Math.floor(Math.random() * 16)];
-  return h;
-}
-
 export function truncMid(s: string, head = 8, tail = 6): string {
   if (!s || s.length <= head + tail + 1) return s;
   return `${s.slice(0, head)}…${s.slice(-tail)}`;
