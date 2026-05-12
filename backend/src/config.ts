@@ -16,6 +16,10 @@ export const config = {
   CONFIRMATION_POLL_MS: parseInt(process.env.CONFIRMATION_POLL_MS || '5000', 10),
   BLOCKFROST_API_KEY: requireEnv('BLOCKFROST_API_KEY'),
   WALLET_ENCRYPTION_KEY: requireEnv('WALLET_ENCRYPTION_KEY'),
+  OWNER_PASSWORD: requireEnv('OWNER_PASSWORD'),
+  AUTH_JWT_SECRET: requireEnv('AUTH_JWT_SECRET'),
+  OWNER_TOKEN_TTL_HOURS: parseInt(process.env.OWNER_TOKEN_TTL_HOURS || '8', 10),
+  RECYCLER_TOKEN_TTL_MIN: parseInt(process.env.RECYCLER_TOKEN_TTL_MIN || '15', 10),
 }
 
 // Caminhos derivados (relativos ao PROJECT_ROOT)

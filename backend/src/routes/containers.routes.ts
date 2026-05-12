@@ -1,11 +1,14 @@
 import { Router, Request, Response } from 'express'
 import * as containersDb from '../db/queries/containers'
 import * as containerService from '../services/container.service'
+import { requireAuth, requireOwner } from '../auth/middleware'
 
 export const router = Router()
 
 // GET /containers - lista containers (opcional ?status=, ?owner_id=)
-router.get('/', async (req: Request, res: Response) => {
+// Recyclers logados precisam consultar containers ativos para escolher onde
+// inserir garrafas no kiosk.
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined
     const ownerId = req.query.owner_id as string | undefined
@@ -28,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
 })
 
 // GET /containers/:id - detalhe de um container
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const container = await containersDb.findById(req.params.id as string)
     if (!container) return res.status(404).json({ error: 'Container nao encontrado' })
@@ -39,7 +42,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 })
 
 // POST /containers - cria um novo container
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireOwner, async (req: Request, res: Response) => {
   try {
     const { owner_id, name, location_name, latitude, longitude, capacity_liters } = req.body
     if (!owner_id || !name || !capacity_liters) {
@@ -58,7 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
 })
 
 // POST /containers/:id/deposit - registra volume depositado
-router.post('/:id/deposit', async (req: Request, res: Response) => {
+router.post('/:id/deposit', requireOwner, async (req: Request, res: Response) => {
   try {
     const { liters } = req.body
     if (!liters || liters <= 0) {
@@ -72,7 +75,7 @@ router.post('/:id/deposit', async (req: Request, res: Response) => {
 })
 
 // POST /containers/:id/collected - marca container como coletado (esvaziado)
-router.post('/:id/collected', async (req: Request, res: Response) => {
+router.post('/:id/collected', requireOwner, async (req: Request, res: Response) => {
   try {
     await containerService.markCollected(req.params.id as string)
     res.json({ message: 'Container esvaziado e reativado' })
@@ -82,7 +85,7 @@ router.post('/:id/collected', async (req: Request, res: Response) => {
 })
 
 // GET /containers/status/ready - lista containers prontos para coleta (>= 90% cheios)
-router.get('/status/ready', async (_req: Request, res: Response) => {
+router.get('/status/ready', requireOwner, async (_req: Request, res: Response) => {
   try {
     const containers = await containerService.listReadyForCollection()
     res.json(containers)

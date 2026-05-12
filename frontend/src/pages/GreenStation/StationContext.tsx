@@ -33,13 +33,16 @@ import {
   getBottle,
   getContainers,
   getGreenwalletBalance,
+  getUser,
   getUserRewards,
-  getUsers,
   type Bottle as ApiBottle,
   type Container,
   type Reward,
   type User,
 } from '@/services/api';
+import { useAuth } from '@/auth/AuthContext';
+import { useIdleTimeout } from '@/hooks/useIdleTimeout';
+import { useNavigate } from 'react-router-dom';
 
 interface ConfettiBurst {
   id: string;
@@ -99,11 +102,9 @@ interface StationState {
   binRef: RefObject<HTMLDivElement>;
   walletRef: RefObject<HTMLDivElement>;
 
-  users: User[];
   containers: Container[];
   setContainers: React.Dispatch<React.SetStateAction<Container[]>>;
   currentUserId: string | null;
-  setCurrentUserId: React.Dispatch<React.SetStateAction<string | null>>;
   currentContainerId: string | null;
   setCurrentContainerId: React.Dispatch<React.SetStateAction<string | null>>;
   currentUser: User | null;
@@ -183,9 +184,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
     }, 0);
   }, [rewards]);
 
-  const [users, setUsers] = useState<User[]>([]);
+  const { user: authUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const currentUserId = authUser?.role === 'recycler' ? authUser.userId : null;
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [containers, setContainers] = useState<Container[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentContainerId, setCurrentContainerId] = useState<string | null>(null);
 
   const [activeStage, setActiveStage] = useState(-1);
@@ -232,29 +236,46 @@ export function StationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Carrega o perfil do reciclador logado (vindo do AuthContext) e a lista de
+  // containers. O usuario nao e' mais selecionavel - vem do token.
   useEffect(() => {
     let alive = true;
-    Promise.all([getUsers('recycler'), getContainers({ status: 'all' })])
+    if (!currentUserId) {
+      setCurrentUser(null);
+      return;
+    }
+    Promise.all([getUser(currentUserId), getContainers({ status: 'all' })])
       .then(([u, c]) => {
         if (!alive) return;
-        setUsers(u);
+        setCurrentUser(u);
         setContainers(c);
-        if (u.length > 0) setCurrentUserId((prev) => prev ?? u[0].id);
         if (c.length > 0) setCurrentContainerId((prev) => prev ?? c[0].id);
       })
       .catch((err) => {
         toast.error(humanizeApiError(err, 'Erro ao carregar dados da estação'), { duration: 10000 });
       });
     return () => { alive = false; };
-  }, []);
+  }, [currentUserId]);
 
-  const currentUser = useMemo(
-    () => users.find((u) => u.id === currentUserId) ?? null,
-    [users, currentUserId],
-  );
   const currentContainer = useMemo(
     () => containers.find((c) => c.id === currentContainerId) ?? null,
     [containers, currentContainerId],
+  );
+
+  // Timeout de inatividade do kiosk: ao expirar, desloga o reciclador e volta
+  // para a tela idle. Reset disparado por interacoes explicitas (drop, pick,
+  // troca de container) - ver chamadas a idle.reset() abaixo.
+  const KIOSK_IDLE_MS = 3 * 60_000;
+  const idle = useIdleTimeout(
+    KIOSK_IDLE_MS,
+    () => {
+      toast.info('Sessão expirada por inatividade. Voltando para a tela inicial.', {
+        duration: 6000,
+      });
+      logout();
+      navigate('/', { replace: true });
+    },
+    !!currentUserId,
   );
 
   // Reset visual ao trocar de container (zera empilhamento de garrafas compactadas).
@@ -564,7 +585,6 @@ export function StationProvider({ children }: { children: ReactNode }) {
     }
 
     setCurrentBottleApi(null);
-    const userId = currentUser.id;
     const containerId = currentContainer.id;
 
     const start = Date.now();
@@ -578,8 +598,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    idle.reset();
     createBottle({
-      user_id: userId,
       container_id: containerId,
       volume_ml: volumeMlOf(b.size),
     })
@@ -725,9 +745,8 @@ export function StationProvider({ children }: { children: ReactNode }) {
       bumpKey, setBumpKey,
       txLog, setTxLog,
       binRef, walletRef,
-      users,
       containers, setContainers,
-      currentUserId, setCurrentUserId,
+      currentUserId,
       currentContainerId, setCurrentContainerId,
       currentUser,
       currentContainer,
@@ -741,7 +760,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       crushed, fillPct, bottlesProcessed,
       activeStage, completed, currentBottle, currentBottleApi, aiResult,
       tokens, ada, bumpKey, txLog,
-      users, containers, currentUserId, currentContainerId, currentUser, currentContainer,
+      containers, currentUserId, currentContainerId, currentUser, currentContainer,
       processingStartedAt,
       inFlight,
       onPickStart,

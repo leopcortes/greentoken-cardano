@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { RequireRole } from '@/auth/RequireRole';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { CurrentBottlePage } from './pages/GreenStation/CurrentBottlePage';
 import { CurrentWalletPage } from './pages/GreenStation/CurrentWalletPage';
@@ -8,8 +10,25 @@ import { InventoryPage } from './pages/GreenStation/InventoryPage';
 import { PipelinePanel } from './pages/GreenStation/PipelinePanel';
 import { StationProvider } from './pages/GreenStation/StationContext';
 import { TopBar } from './pages/GreenStation/TopBar';
+import { KioskIdleScreen } from './pages/GreenStation/KioskIdleScreen';
+import { OwnerLoginPage } from './pages/Login/OwnerLoginPage';
+import { WalletPage } from './pages/Wallet/WalletPage';
 
-function HomePage() {
+function KioskRoute() {
+  const { user, ready } = useAuth();
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-ink-3 text-sm">
+        Carregando...
+      </div>
+    );
+  }
+  // Kiosk so' libera a UI da station para recyclers logados. Owner logado vai
+  // direto para o dashboard - se cair aqui, mostramos o idle screen para evitar
+  // confusao (operador nao deve inserir garrafas com token de owner).
+  if (!user || user.role !== 'recycler') {
+    return <KioskIdleScreen />;
+  }
   return (
     <StationProvider>
       <div className="min-h-screen lg:h-screen flex flex-col bg-bg lg:overflow-hidden">
@@ -42,12 +61,30 @@ function HomePage() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<KioskRoute />} />
+          <Route path="/login/owner" element={<OwnerLoginPage />} />
+          <Route
+            path="/wallet"
+            element={
+              <RequireRole role="recycler" redirectTo="/">
+                <WalletPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireRole role="owner" redirectTo="/login/owner">
+                <DashboardPage />
+              </RequireRole>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
