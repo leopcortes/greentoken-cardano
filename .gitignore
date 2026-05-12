@@ -9,7 +9,7 @@ node_modules/
 .env
 !.env.example
 
-# Chaves privadas - NUNCA commitar
+# Chaves privadas
 *.skey
 *.hwsfile
 *.priv
@@ -18,7 +18,7 @@ node_modules/
 assets/txs/
 assets/datums/
 
-# Protocol parameters (gerados localmente via query)
+# Protocol parameters
 assets/protocol.json
 assets/pp.json
 protocol.json
@@ -31,12 +31,12 @@ pp.json
 logs/
 *.error
 
-# Demeter (cache de ambiente cloud - não mais utilizado)
+# Demeter
 demeter/
 workspace/
 node-ipc/
 
-# Arquivos de sessão SQL (gerados por IDEs)
+# Arquivos de sessão SQL
 *.session.sql
 
 # VSCode
