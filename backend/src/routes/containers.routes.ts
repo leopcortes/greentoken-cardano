@@ -7,7 +7,7 @@ export const router = Router()
 
 // GET /containers - lista containers (opcional ?status=, ?owner_id=)
 // Recyclers logados precisam consultar containers ativos para escolher onde
-// inserir garrafas no kiosk.
+// inserir garrafas no terminal.
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined

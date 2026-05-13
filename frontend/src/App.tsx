@@ -3,18 +3,17 @@ import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { RequireRole } from '@/auth/RequireRole';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
-import { CurrentBottlePage } from './pages/GreenStation/CurrentBottlePage';
-import { CurrentWalletPage } from './pages/GreenStation/CurrentWalletPage';
-import { CurrentContainerPage } from './pages/GreenStation/CurrentContainerPage';
-import { InventoryPage } from './pages/GreenStation/InventoryPage';
-import { PipelinePanel } from './pages/GreenStation/PipelinePanel';
-import { StationProvider } from './pages/GreenStation/StationContext';
-import { TopBar } from './pages/GreenStation/TopBar';
-import { KioskIdleScreen } from './pages/GreenStation/KioskIdleScreen';
-import { OwnerLoginPage } from './pages/Login/OwnerLoginPage';
+import { CurrentBottlePage } from './pages/Terminal/CurrentBottlePage';
+import { CurrentWalletPage } from './pages/Terminal/CurrentWalletPage';
+import { CurrentContainerPage } from './pages/Terminal/CurrentContainerPage';
+import { InventoryPage } from './pages/Terminal/InventoryPage';
+import { PipelinePanel } from './pages/Terminal/PipelinePanel';
+import { StationProvider } from './pages/Terminal/StationContext';
+import { TopBar } from './pages/Terminal/TopBar';
+import { TerminalIdleScreen } from './pages/Terminal/TerminalIdleScreen';
 import { WalletPage } from './pages/Wallet/WalletPage';
 
-function KioskRoute() {
+function TerminalRoute() {
   const { user, ready } = useAuth();
   if (!ready) {
     return (
@@ -23,11 +22,11 @@ function KioskRoute() {
       </div>
     );
   }
-  // Kiosk so' libera a UI da station para recyclers logados. Owner logado vai
+  // Terminal so' libera a UI da station para recyclers logados. Owner logado vai
   // direto para o dashboard - se cair aqui, mostramos o idle screen para evitar
   // confusao (operador nao deve inserir garrafas com token de owner).
   if (!user || user.role !== 'recycler') {
-    return <KioskIdleScreen />;
+    return <TerminalIdleScreen />;
   }
   return (
     <StationProvider>
@@ -54,7 +53,6 @@ function KioskRoute() {
           </div>
         </main>
       </div>
-      <Toaster position="bottom-center" richColors closeButton />
     </StationProvider>
   );
 }
@@ -63,9 +61,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Toaster position="bottom-center" richColors closeButton />
         <Routes>
-          <Route path="/" element={<KioskRoute />} />
-          <Route path="/login/owner" element={<OwnerLoginPage />} />
+          <Route path="/" element={<TerminalRoute />} />
           <Route
             path="/wallet"
             element={
@@ -77,7 +75,7 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <RequireRole role="owner" redirectTo="/login/owner">
+              <RequireRole role="owner" redirectTo="/">
                 <DashboardPage />
               </RequireRole>
             }

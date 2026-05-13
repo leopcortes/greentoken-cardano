@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 // Dispara `onIdle` apos `idleMs` sem chamadas a `reset`. Util para deslogar
-// o reciclador do kiosk apos um periodo de inatividade.
+// o reciclador do terminal apos um periodo de inatividade.
 //
 // O hook NAO escuta eventos do DOM por si so - o caller deve chamar reset()
 // nos pontos relevantes (ex.: drop de garrafa, troca de container) para que

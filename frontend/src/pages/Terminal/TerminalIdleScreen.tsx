@@ -1,8 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { OwnerLoginDialog } from './OwnerLoginDialog';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { QrCodeMock } from '@/components/ui/qr-code-mock';
 import { useAuth } from '@/auth/AuthContext';
-import { getRecyclersForKiosk } from '@/services/api';
+import { getRecyclersForTerminal } from '@/services/api';
 
 function humanizeApiError(err: unknown, fallback: string): string {
   const raw = err instanceof Error ? err.message : String(err ?? fallback);
@@ -34,41 +34,39 @@ function humanizeApiError(err: unknown, fallback: string): string {
   return body || fallback;
 }
 
-export function KioskIdleScreen() {
+export function TerminalIdleScreen() {
   const { loginRecycler } = useAuth();
   const [open, setOpen] = useState(false);
-  const [address, setAddress] = useState('');
+  const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedRecyclerId, setSelectedRecyclerId] = useState<string>('');
 
-  // Lista publica de recicladores para o "modo demo" (selecionar da lista em
-  // vez de digitar o endereco da carteira).
   const [recyclers, setRecyclers] = useState<Array<{ id: string; name: string; wallet_address: string }>>([]);
   useEffect(() => {
     if (!open) return;
-    getRecyclersForKiosk().then(setRecyclers).catch(() => setRecyclers([]));
+    getRecyclersForTerminal()
+      .then(setRecyclers)
+      .catch(() => setRecyclers([]));
   }, [open]);
 
-  const submit = async (raw: string) => {
-    const value = raw.trim();
-    if (!value) {
-      toast.error('Informe o endereco da sua carteira');
-      return;
-    }
+  // Reset state when dialog fecha para que o proximo open comece zerado
+  useEffect(() => {
+    if (!open) setSelectedRecyclerId('');
+  }, [open]);
+
+  const onSimulateScan = async () => {
+    const user = recyclers.find((r) => r.id === selectedRecyclerId);
+    if (!user) return;
     setSubmitting(true);
     try {
-      const user = await loginRecycler(value);
-      toast.success(`Bem-vindo(a), ${user.name}!`);
+      const logged = await loginRecycler(user.wallet_address);
+      toast.success(`Bem-vindo(a), ${logged.name}!`);
       setOpen(false);
     } catch (err) {
       toast.error(humanizeApiError(err, 'Falha ao entrar'), { duration: 8000 });
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const onFormSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void submit(address);
   };
 
   return (
@@ -90,14 +88,18 @@ export function KioskIdleScreen() {
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <span className="gt-chip gt-chip--cdn">Cardano · preprod</span>
-          <Link
-            to="/login/owner"
-            className="inline-flex items-center gap-[6px] px-3 py-[6px] rounded-lg border border-line text-ink-2 text-[11px] font-semibold no-underline hover:bg-bg-elev transition-colors"
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setOwnerDialogOpen(true);
+            }}
+            className="bg-muted hover:bg-muted/50 inline-flex items-center gap-[6px] px-4 py-[6px] rounded-lg border border-line text-ink-2 text-[12px] font-semibold transition-colors"
           >
-            Owner
-          </Link>
+            Administração
+          </button>
         </div>
       </header>
 
@@ -116,7 +118,10 @@ export function KioskIdleScreen() {
           </p>
           <Button
             size="lg"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setOwnerDialogOpen(false);
+              setOpen(true);
+            }}
             className="bg-gt-600 hover:bg-gt-700 text-white text-lg font-bold px-8 py-6 h-auto"
             style={{ boxShadow: '0 4px 14px rgba(22,163,74,0.35)' }}
           >
@@ -134,65 +139,63 @@ export function KioskIdleScreen() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Entrar com sua greenwallet</DialogTitle>
+            <DialogTitle>Entrar com sua Greenwallet</DialogTitle>
           </DialogHeader>
-          <p className="text-[12px] text-ink-3 -mt-1 mb-2">
-            Informe o endereço Cardano da sua greenwallet. Em produção, esta etapa
-            seria substituida por escaneamento de QR code com o app da carteira.
-          </p>
 
-          <form onSubmit={onFormSubmit} className="space-y-3">
-            <Input
-              autoFocus
-              placeholder="addr_test1..."
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              disabled={submitting}
-              className="mono text-xs"
-            />
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <QrCodeMock size={160} />
+            <p className="text-[12px] text-ink-3 text-center">
+              Aponte o app da sua carteira para o QR code acima.
+            </p>
+          </div>
 
-            {recyclers.length > 0 && (
-              <div>
-                <div className="gt-eyebrow mb-1.5">Ou selecione um reciclador (demo)</div>
-                <Select
-                  onValueChange={(v) => {
-                    const u = recyclers.find((r) => r.id === v);
-                    if (u?.wallet_address) {
-                      setAddress(u.wallet_address);
-                      void submit(u.wallet_address);
-                    }
-                  }}
-                  disabled={submitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recyclers.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-line" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
+              <span className="bg-bg-card px-2 text-ink-4">ou (demo)</span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <div className="gt-eyebrow mb-1.5">Selecione um reciclador</div>
+              <Select
+                value={selectedRecyclerId || undefined}
+                onValueChange={(v) => setSelectedRecyclerId(v)}
+                disabled={submitting || recyclers.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={recyclers.length === 0 ? 'Carregando...' : 'Selecionar...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {recyclers.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
                 Cancelar
               </Button>
               <Button
-                type="submit"
-                disabled={submitting || !address.trim()}
+                type="button"
+                onClick={onSimulateScan}
+                disabled={submitting || !selectedRecyclerId}
                 className="bg-gt-600 hover:bg-gt-700 text-white"
               >
-                {submitting ? 'Entrando...' : 'Entrar'}
+                {submitting ? 'Entrando...' : 'Simular scan'}
               </Button>
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
+      <OwnerLoginDialog open={ownerDialogOpen} onOpenChange={setOwnerDialogOpen} />
     </div>
   );
 }

@@ -262,12 +262,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
     [containers, currentContainerId],
   );
 
-  // Timeout de inatividade do kiosk: ao expirar, desloga o reciclador e volta
+  // Timeout de inatividade do terminal: ao expirar, desloga o reciclador e volta
   // para a tela idle. Reset disparado por interacoes explicitas (drop, pick,
   // troca de container) - ver chamadas a idle.reset() abaixo.
-  const KIOSK_IDLE_MS = 3 * 60_000;
+  const TERMINAL_IDLE_MS = 3 * 60_000;
   const idle = useIdleTimeout(
-    KIOSK_IDLE_MS,
+    TERMINAL_IDLE_MS,
     () => {
       toast.info('Sessão expirada por inatividade. Voltando para a tela inicial.', {
         duration: 6000,

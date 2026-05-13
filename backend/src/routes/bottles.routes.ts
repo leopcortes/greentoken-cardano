@@ -82,7 +82,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 })
 
 // POST /bottles - cria uma nova garrafa e submete tx de mint.
-// Reciclador: userId vem do token (kiosk); user_id no body e' ignorado.
+// Reciclador: userId vem do token (terminal); user_id no body e' ignorado.
 // Owner: pode criar garrafa em nome de qualquer reciclador via user_id explicito
 // no body (usado pelo dashboard administrativo).
 router.post('/', requireAuth, async (req: Request, res: Response) => {

@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 interface Props {
   role: 'owner' | 'recycler';
   // Para onde redirecionar quando o usuario nao esta autenticado ou tem outro
-  // papel. Owner -> /login/owner (form de senha); recycler -> /  (kiosk idle).
+  // papel. Owner -> / (dialog de senha abre via header); recycler -> / (terminal idle).
   redirectTo: string;
   children: ReactNode;
 }

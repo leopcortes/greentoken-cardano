@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
 import { Eye, EyeOff, LogOut, QrCode, RefreshCw, Shield } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -97,7 +97,7 @@ export function WalletPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line text-ink-2 text-[12px] font-semibold hover:bg-bg-elev transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 bg-red-50 text-red-700 text-[12px] font-semibold hover:bg-red-100 transition-colors"
           >
             <LogOut size={13} />
             Sair
@@ -237,7 +237,6 @@ export function WalletPage() {
 
         <QrModal open={qrOpen} user={user} onClose={() => setQrOpen(false)} />
       </main>
-      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }

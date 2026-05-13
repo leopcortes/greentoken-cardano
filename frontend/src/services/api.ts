@@ -52,6 +52,10 @@ export interface User {
   // true se o usuario tem mnemonica custodiada (greenwallet); false para
   // usuarios legados criados antes da migracao 002 com wallet_address manual.
   has_greenwallet: boolean;
+  // Migracao pendente: greenwallet nova gerada mas ainda nao confirmada.
+  pending_wallet_address: string | null;
+  has_pending_migration: boolean;
+  migration_initiated_at: string | null;
   created_at: string;
 }
 
@@ -194,9 +198,9 @@ export const loginRecycler = (walletAddress: string) =>
 export const getAuthMe = () =>
   request<{ user: AuthMePayload }>('/auth/me');
 
-// Endpoint publico usado pelo kiosk para listar recicladores no modal de login
+// Endpoint publico usado pelo terminal para listar recicladores no modal de login
 // (modo demo). Retorna campos minimos.
-export const getRecyclersForKiosk = () =>
+export const getRecyclersForTerminal = () =>
   request<Array<{ id: string; name: string; wallet_address: string }>>('/auth/recyclers');
 
 // --- Users ---
@@ -220,6 +224,31 @@ export const getGreenwallet = (id: string) =>
 
 export const getGreenwalletBalance = (id: string) =>
   request<GreenwalletBalance>(`/users/${id}/greenwallet/balance`);
+
+export interface MigrationInitiated {
+  user: User;
+  new_address: string;
+  old_address: string | null;
+  mnemonic: string[];
+}
+
+export const initiateGreenwalletMigration = (id: string) =>
+  request<MigrationInitiated>(
+    `/users/${id}/greenwallet/migrate`,
+    { method: 'POST' },
+  );
+
+export const confirmGreenwalletMigration = (id: string) =>
+  request<{ user: User }>(
+    `/users/${id}/greenwallet/migrate/confirm`,
+    { method: 'POST' },
+  );
+
+export const cancelGreenwalletMigration = (id: string) =>
+  request<{ user: User }>(
+    `/users/${id}/greenwallet/migrate/cancel`,
+    { method: 'POST' },
+  );
 
 // --- Bottles ---
 

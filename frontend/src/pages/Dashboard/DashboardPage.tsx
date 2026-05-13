@@ -1,6 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Toaster } from 'sonner';
 import { BottlesPage } from '@/pages/Dashboard/BottlesPage';
 import { UsersPage } from '@/pages/Dashboard/UsersPage';
 import { ContainersPage } from '@/pages/Dashboard/ContainersPage';
@@ -16,7 +15,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const onLogout = () => {
     logout();
-    navigate('/login/owner', { replace: true });
+    navigate('/', { replace: true });
   };
 
   return (
@@ -35,7 +34,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           <div>
             <h1 className="text-base font-normal tracking-tight text-right leading-tight">Projeto de Conclusão de Curso de Eng. de Computação</h1>
             <p className="text-xs text-ink-3 text-right">Ana Paula Nóbrega e Leonardo Côrtes</p>
@@ -43,7 +42,7 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={onLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line text-ink-2 text-[12px] font-semibold hover:bg-bg-elev transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 bg-red-100 text-red-800 text-[12px] font-semibold hover:bg-red-100 transition-colors"
           >
             <LogOut size={13} />
             Sair
@@ -82,7 +81,6 @@ export function DashboardPage() {
           </TabsContent>
         </Tabs>
       </main>
-      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }

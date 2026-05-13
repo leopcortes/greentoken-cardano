@@ -9,6 +9,11 @@ export interface User {
   wallet_address: string | null
   pubkey_hash: string | null
   has_greenwallet: boolean
+  // Migracao pendente: greenwallet nova ja gerada mas ainda nao confirmada
+  // como definitiva (usuario precisa transferir GTs do endereco antigo).
+  pending_wallet_address: string | null
+  has_pending_migration: boolean
+  migration_initiated_at: Date | null
   created_at: Date
 }
 
@@ -33,6 +38,9 @@ export function requireWallet(user: User | null, userIdForError?: string): UserW
 const PUBLIC_COLUMNS =
   'id, role, name, email, wallet_address, pubkey_hash, ' +
   '(mnemonic_ciphertext IS NOT NULL) AS has_greenwallet, ' +
+  'pending_wallet_address, ' +
+  '(pending_wallet_address IS NOT NULL) AS has_pending_migration, ' +
+  'migration_initiated_at, ' +
   'created_at'
 
 export async function findById(id: string): Promise<User | null> {
@@ -120,4 +128,88 @@ export async function getEncryptedSeed(id: string): Promise<EncryptedSeed | null
     authTag: r.mnemonic_auth_tag,
     version: r.encryption_key_version,
   }
+}
+
+// Preenche os campos pending_* com uma greenwallet recem-gerada. Retorna
+// o User atualizado. Falha se o usuario ja tem greenwallet custodiada
+// (mnemonic_ciphertext IS NOT NULL) ou ja tem migracao pendente.
+export async function initiateMigration(
+  id: string,
+  data: {
+    pending_wallet_address: string
+    pending_pubkey_hash: string
+    encrypted_seed: EncryptedSeed
+  },
+): Promise<User | null> {
+  const { encrypted_seed: enc } = data
+  const { rows } = await pool.query(
+    `UPDATE users
+       SET pending_wallet_address         = $2,
+           pending_pubkey_hash            = $3,
+           pending_mnemonic_ciphertext    = $4,
+           pending_mnemonic_iv            = $5,
+           pending_mnemonic_auth_tag      = $6,
+           pending_encryption_key_version = $7,
+           migration_initiated_at         = NOW()
+     WHERE id = $1
+       AND mnemonic_ciphertext IS NULL
+       AND pending_wallet_address IS NULL
+     RETURNING ${PUBLIC_COLUMNS}`,
+    [
+      id,
+      data.pending_wallet_address,
+      data.pending_pubkey_hash,
+      enc.ciphertext,
+      enc.iv,
+      enc.authTag,
+      enc.version,
+    ],
+  )
+  return rows[0] ?? null
+}
+
+// Copia os campos pending_* para os definitivos e limpa os pending_*.
+// Retorna o User atualizado, ou null se nao havia migracao pendente.
+export async function confirmMigration(id: string): Promise<User | null> {
+  const { rows } = await pool.query(
+    `UPDATE users
+       SET wallet_address                 = pending_wallet_address,
+           pubkey_hash                    = pending_pubkey_hash,
+           mnemonic_ciphertext            = pending_mnemonic_ciphertext,
+           mnemonic_iv                    = pending_mnemonic_iv,
+           mnemonic_auth_tag              = pending_mnemonic_auth_tag,
+           encryption_key_version         = pending_encryption_key_version,
+           pending_wallet_address         = NULL,
+           pending_pubkey_hash            = NULL,
+           pending_mnemonic_ciphertext    = NULL,
+           pending_mnemonic_iv            = NULL,
+           pending_mnemonic_auth_tag      = NULL,
+           pending_encryption_key_version = NULL,
+           migration_initiated_at         = NULL
+     WHERE id = $1
+       AND pending_wallet_address IS NOT NULL
+     RETURNING ${PUBLIC_COLUMNS}`,
+    [id],
+  )
+  return rows[0] ?? null
+}
+
+// Limpa os campos pending_* sem swap. Retorna o User atualizado, ou null
+// se nao havia migracao pendente.
+export async function cancelMigration(id: string): Promise<User | null> {
+  const { rows } = await pool.query(
+    `UPDATE users
+       SET pending_wallet_address         = NULL,
+           pending_pubkey_hash            = NULL,
+           pending_mnemonic_ciphertext    = NULL,
+           pending_mnemonic_iv            = NULL,
+           pending_mnemonic_auth_tag      = NULL,
+           pending_encryption_key_version = NULL,
+           migration_initiated_at         = NULL
+     WHERE id = $1
+       AND pending_wallet_address IS NOT NULL
+     RETURNING ${PUBLIC_COLUMNS}`,
+    [id],
+  )
+  return rows[0] ?? null
 }

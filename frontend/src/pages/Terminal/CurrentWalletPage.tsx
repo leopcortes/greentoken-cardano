@@ -41,7 +41,7 @@ export function CurrentWalletPage() {
         <div className="flex flex-col gap-1.5 flex-none">
           <Link
             to="/wallet"
-            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-line text-ink-2 text-[10px] font-semibold no-underline hover:bg-bg-elev transition-colors"
+            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-[10px] font-semibold no-underline hover:bg-yellow-100 transition-colors"
             title="Ver carteira completa"
           >
             <Wallet size={11} />
@@ -51,7 +51,7 @@ export function CurrentWalletPage() {
             type="button"
             onClick={onLogout}
             disabled={pipelineBusy}
-            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-line text-ink-2 text-[10px] font-semibold hover:bg-bg-elev disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-red-300 bg-red-100 text-red-800 text-[10px] font-semibold hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Encerrar sessao"
           >
             <LogOut size={11} />
