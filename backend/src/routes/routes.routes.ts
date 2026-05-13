@@ -21,7 +21,7 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const route = await routesDb.findById(req.params.id as string)
-    if (!route) return res.status(404).json({ error: 'Rota nao encontrada' })
+    if (!route) return res.status(404).json({ error: 'Rota não encontrada' })
     const stops = await routesDb.findStops(req.params.id as string)
     res.json({ ...route, stops })
   } catch (err: any) {
@@ -64,7 +64,7 @@ router.post('/stops/:stopId/collect', async (req: Request, res: Response) => {
   }
 })
 
-// POST /routes/:id/deliver - entrega garrafas da rota em uma estacao
+// POST /routes/:id/deliver - entrega garrafas da rota em uma estação
 router.post('/:id/deliver', async (req: Request, res: Response) => {
   try {
     const { station_id } = req.body
@@ -72,7 +72,7 @@ router.post('/:id/deliver', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Campo obrigatorio: station_id' })
     }
 
-    // Atualiza station_id na rota se ainda nao estava definido
+    // Atualiza station_id na rota se ainda não estava definido
     await routesDb.updateStationId(req.params.id as string, station_id)
 
     const result = await bottleService.deliverToStation(req.params.id as string, station_id)
@@ -81,7 +81,7 @@ router.post('/:id/deliver', async (req: Request, res: Response) => {
     await routesDb.completeRoute(req.params.id as string)
 
     res.json({
-      message: `${result.delivered} garrafa(s) entregue(s) na estacao. Rota concluida.`,
+      message: `${result.delivered} garrafa(s) entregue(s) na estação. Rota concluida.`,
       ...result,
     })
   } catch (err: any) {

@@ -169,7 +169,7 @@ export async function collectByIds(bottleIds: string[], routeId: string): Promis
   return rowCount ?? 0
 }
 
-// Batch: move garrafas collected para uma estacao por IDs (atstation)
+// Batch: move garrafas collected para uma estação por IDs (atstation)
 export async function deliverByIds(bottleIds: string[], stationId: string): Promise<number> {
   if (bottleIds.length === 0) return 0
   const { rowCount } = await pool.query(
@@ -182,7 +182,7 @@ export async function deliverByIds(bottleIds: string[], stationId: string): Prom
   return rowCount ?? 0
 }
 
-// Tritura uma garrafa na estacao
+// Tritura uma garrafa na estação
 export async function shred(id: string): Promise<void> {
   await pool.query(
     `UPDATE bottles SET current_stage = 'shredded', shredded_at = NOW()

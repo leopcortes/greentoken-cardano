@@ -45,7 +45,7 @@ export function requireOwner(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// Permite acesso se o usuario logado for owner OU se for o proprio recycler
+// Permite acesso se o usuário logado for owner OU se for o proprio recycler
 // (req.user.userId === req.params[paramName]).
 export function requireSelfOrOwner(paramName: string = 'id') {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -59,7 +59,7 @@ export function requireSelfOrOwner(paramName: string = 'id') {
       if (payload.role === 'owner') return next()
       const targetId = req.params[paramName]
       if (payload.userId === targetId) return next()
-      return res.status(403).json({ error: 'Acesso negado a recursos de outro usuario' })
+      return res.status(403).json({ error: 'Acesso negado a recursos de outro usuário' })
     } catch {
       return res.status(401).json({ error: 'Token invalido ou expirado' })
     }

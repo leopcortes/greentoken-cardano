@@ -12,7 +12,7 @@ export function CurrentWalletPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  // Bloqueia logout enquanto ha garrafas em voo (confirmacoes on-chain ainda
+  // Bloqueia logout enquanto há garrafas em voo (confirmacoes on-chain ainda
   // referenciam o user_id atual). Mostramos um toast explicando.
   const pipelineBusy = activeStage >= 0 || inFlight.length > 0;
 
@@ -34,7 +34,7 @@ export function CurrentWalletPage() {
             {currentUser?.name ?? '...'}
           </div>
           <div className="mono text-[10px] mt-0.5 flex gap-1 items-center text-ink-4">
-            {currentUser?.wallet_address ? truncMid(currentUser.wallet_address, 8, 6) : '-'}
+            {currentUser?.wallet_address ? truncMid(currentUser.wallet_address, 14, 6) : '-'}
             {currentUser?.wallet_address && <CopyButton value={currentUser.wallet_address} />}
           </div>
         </div>

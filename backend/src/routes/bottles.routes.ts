@@ -15,7 +15,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     if (auth.role === 'recycler') {
       if (user_id && user_id !== auth.userId) {
-        return res.status(403).json({ error: 'Acesso negado a garrafas de outro usuario' })
+        return res.status(403).json({ error: 'Acesso negado a garrafas de outro usuário' })
       }
       user_id = auth.userId
     }
@@ -70,11 +70,11 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const history = await bottleService.getHistory(req.params.id as string)
     const auth = req.user!
     if (auth.role === 'recycler' && history?.bottle?.user_id !== auth.userId) {
-      return res.status(403).json({ error: 'Acesso negado a garrafa de outro usuario' })
+      return res.status(403).json({ error: 'Acesso negado a garrafa de outro usuário' })
     }
     res.json(history)
   } catch (err: any) {
-    if (err.message.includes('nao encontrada')) {
+    if (err.message.includes('não encontrada')) {
       return res.status(404).json({ error: err.message })
     }
     res.status(500).json({ error: err.message })

@@ -32,6 +32,22 @@ export async function findByBottleId(bottleId: string): Promise<BlockchainTx[]> 
   return rows
 }
 
+// Idempotência: evita criar txs duplicadas quando o operador reapertar
+// triturar/coletar/entregar antes do worker confirmar a tx anterior.
+export async function findPendingByBottleAndStage(
+  bottleId: string,
+  stage: string,
+): Promise<BlockchainTx | null> {
+  const { rows } = await pool.query(
+    `SELECT * FROM blockchain_txs
+     WHERE bottle_id = $1 AND stage = $2 AND status = 'pending'
+     ORDER BY submitted_at DESC
+     LIMIT 1`,
+    [bottleId, stage],
+  )
+  return rows[0] ?? null
+}
+
 export async function create(data: {
   bottle_id: string
   stage: string

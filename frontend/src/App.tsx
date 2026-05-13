@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { RequireRole } from '@/auth/RequireRole';
@@ -10,8 +10,9 @@ import { InventoryPage } from './pages/Terminal/InventoryPage';
 import { PipelinePanel } from './pages/Terminal/PipelinePanel';
 import { StationProvider } from './pages/Terminal/StationContext';
 import { TopBar } from './pages/Terminal/TopBar';
-import { TerminalIdleScreen } from './pages/Terminal/TerminalIdleScreen';
 import { WalletPage } from './pages/Wallet/WalletPage';
+import { LoginPage } from './pages/Auth/LoginPage';
+import { SignupPage } from './pages/Auth/SignupPage';
 
 function TerminalRoute() {
   const { user, ready } = useAuth();
@@ -22,12 +23,8 @@ function TerminalRoute() {
       </div>
     );
   }
-  // Terminal so' libera a UI da station para recyclers logados. Owner logado vai
-  // direto para o dashboard - se cair aqui, mostramos o idle screen para evitar
-  // confusao (operador nao deve inserir garrafas com token de owner).
-  if (!user || user.role !== 'recycler') {
-    return <TerminalIdleScreen />;
-  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'owner') return <Navigate to="/dashboard" replace />;
   return (
     <StationProvider>
       <div className="min-h-screen lg:h-screen flex flex-col bg-bg lg:overflow-hidden">
@@ -57,6 +54,20 @@ function TerminalRoute() {
   );
 }
 
+// Redireciona login/signup quando ja autenticado.
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, ready } = useAuth();
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-ink-3 text-sm">
+        Carregando...
+      </div>
+    );
+  }
+  if (user) return <Navigate to={user.role === 'owner' ? '/dashboard' : '/'} replace />;
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -65,9 +76,25 @@ function App() {
         <Routes>
           <Route path="/" element={<TerminalRoute />} />
           <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <LoginPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicOnlyRoute>
+                <SignupPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
             path="/wallet"
             element={
-              <RequireRole role="recycler" redirectTo="/">
+              <RequireRole role="recycler" redirectTo="/login">
                 <WalletPage />
               </RequireRole>
             }
@@ -75,7 +102,7 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <RequireRole role="owner" redirectTo="/">
+              <RequireRole role="owner" redirectTo="/login">
                 <DashboardPage />
               </RequireRole>
             }

@@ -12,7 +12,7 @@ export interface Reward {
   sent_at: Date
 }
 
-// Recompensas por estagio - valores iguais aos dos bash scripts (on-chain)
+// Recompensas por estágio - valores iguais aos dos bash scripts (on-chain)
 export const REWARDS_BY_STAGE: Record<string, number> = {
   inserted: 10,
   compacted: 3,

@@ -3,7 +3,7 @@ import 'dotenv/config'
 
 function requireEnv(name: string): string {
   const val = process.env[name]
-  if (!val) throw new Error(`Variavel de ambiente obrigatoria nao definida: ${name}`)
+  if (!val) throw new Error(`Variavel de ambiente obrigatoria não definida: ${name}`)
   return val
 }
 
@@ -16,6 +16,7 @@ export const config = {
   CONFIRMATION_POLL_MS: parseInt(process.env.CONFIRMATION_POLL_MS || '5000', 10),
   BLOCKFROST_API_KEY: requireEnv('BLOCKFROST_API_KEY'),
   WALLET_ENCRYPTION_KEY: requireEnv('WALLET_ENCRYPTION_KEY'),
+  OWNER_EMAIL: process.env.OWNER_EMAIL || 'owner@greentoken.io',
   OWNER_PASSWORD: requireEnv('OWNER_PASSWORD'),
   AUTH_JWT_SECRET: requireEnv('AUTH_JWT_SECRET'),
   OWNER_TOKEN_TTL_HOURS: parseInt(process.env.OWNER_TOKEN_TTL_HOURS || '8', 10),

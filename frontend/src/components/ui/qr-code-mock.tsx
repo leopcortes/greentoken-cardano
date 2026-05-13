@@ -9,7 +9,7 @@ interface QrCodeMockProps {
 
 export function QrCodeMock({ size = 160, className, scanning = false }: QrCodeMockProps) {
   // Grade 21x21 (versao 1 do padrao QR) com 3 finder patterns nos cantos
-  // + algumas celulas pseudo-aleatorias. Padrao fixo para nao parecer
+  // + algumas celulas pseudo-aleatorias. Padrao fixo para não parecer
   // animado entre renders.
   const cells: Array<[number, number]> = [
     // Linhas geradas para parecer um QR plausivel - nada decodificavel

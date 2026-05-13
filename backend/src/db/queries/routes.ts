@@ -114,7 +114,7 @@ export async function create(data: {
   }
 }
 
-// Marca uma parada como coletada (apenas banco - garrafas sao movidas pelo service)
+// Marca uma parada como coletada (apenas banco - garrafas são movidas pelo service)
 export async function completeStop(stopId: string): Promise<{ routeId: string; containerId: string }> {
   const client = await pool.connect()
   try {
@@ -126,7 +126,7 @@ export async function completeStop(stopId: string): Promise<{ routeId: string; c
       [stopId],
     )
 
-    if (!stop) throw new Error('Parada nao encontrada')
+    if (!stop) throw new Error('Parada não encontrada')
 
     // Check how many stops are still pending
     const { rows: [{ pending }] } = await client.query(

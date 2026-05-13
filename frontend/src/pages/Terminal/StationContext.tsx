@@ -186,7 +186,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
   const { user: authUser, logout } = useAuth();
   const navigate = useNavigate();
-  const currentUserId = authUser?.role === 'recycler' ? authUser.userId : null;
+  const currentUserId = authUser?.role === 'recycler' ? authUser.id : null;
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [containers, setContainers] = useState<Container[]>([]);
@@ -237,7 +237,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Carrega o perfil do reciclador logado (vindo do AuthContext) e a lista de
-  // containers. O usuario nao e' mais selecionavel - vem do token.
+  // containers. O usuário não e' mais selecionavel - vem do token.
   useEffect(() => {
     let alive = true;
     if (!currentUserId) {

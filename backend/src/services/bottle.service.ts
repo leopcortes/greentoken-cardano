@@ -186,18 +186,38 @@ export async function collectContainer(containerId: string, routeId: string) {
     )
   }
 
-  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
-  if (operatorUtxos.length === 0) {
+  // Idempotência: se já existe tx pendente para a garrafa indo para `collected`,
+  // reusa em vez de submeter novamente (clique duplo / retry do operador).
+  const pendingByBottle = new Map<string, txsDb.BlockchainTx>()
+  const needsSubmit: typeof readyBottles = []
+  for (const bottle of readyBottles) {
+    const existing = await txsDb.findPendingByBottleAndStage(bottle.id, 'collected')
+    if (existing) {
+      pendingByBottle.set(bottle.id, existing)
+    } else {
+      needsSubmit.push(bottle)
+    }
+  }
+
+  // Aloca UTxOs do operador apenas para as garrafas que realmente vão submeter
+  const operatorUtxos = needsSubmit.length > 0
+    ? await cardano.allocateOperatorUtxos(needsSubmit.length, 4_000_000)
+    : []
+  if (needsSubmit.length > 0 && operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
-  // Submete tx de avanco para cada garrafa
+  // Resultado começa com as garrafas que já tinham tx pendente
   const results: { bottleId: string; txHash: string }[] = []
-  for (let i = 0; i < readyBottles.length; i++) {
-    const bottle = readyBottles[i]
+  for (const [bottleId, tx] of pendingByBottle) {
+    if (tx.tx_hash) results.push({ bottleId, txHash: tx.tx_hash })
+  }
+
+  // Submete tx de avanco para cada garrafa nova
+  for (let i = 0; i < needsSubmit.length; i++) {
+    const bottle = needsSubmit[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[collect] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
+      console.warn(`[collect] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${needsSubmit.length}). Processe novamente após confirmação.`)
       break
     }
 
@@ -268,18 +288,34 @@ export async function deliverToStation(routeId: string, stationId: string) {
     )
   }
 
-  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
-  if (operatorUtxos.length === 0) {
+  // Idempotência: reusa txs pendentes para `atstation` em vez de duplicar submit
+  const pendingByBottle = new Map<string, txsDb.BlockchainTx>()
+  const needsSubmit: typeof readyBottles = []
+  for (const bottle of readyBottles) {
+    const existing = await txsDb.findPendingByBottleAndStage(bottle.id, 'atstation')
+    if (existing) {
+      pendingByBottle.set(bottle.id, existing)
+    } else {
+      needsSubmit.push(bottle)
+    }
+  }
+
+  const operatorUtxos = needsSubmit.length > 0
+    ? await cardano.allocateOperatorUtxos(needsSubmit.length, 4_000_000)
+    : []
+  if (needsSubmit.length > 0 && operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
-  // Submete tx de avanco para cada garrafa
   const results: { bottleId: string; txHash: string }[] = []
-  for (let i = 0; i < readyBottles.length; i++) {
-    const bottle = readyBottles[i]
+  for (const [bottleId, tx] of pendingByBottle) {
+    if (tx.tx_hash) results.push({ bottleId, txHash: tx.tx_hash })
+  }
+
+  for (let i = 0; i < needsSubmit.length; i++) {
+    const bottle = needsSubmit[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[deliver] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
+      console.warn(`[deliver] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${needsSubmit.length}). Processe novamente após confirmação.`)
       break
     }
 
@@ -389,18 +425,34 @@ export async function shredStation(stationId: string) {
     )
   }
 
-  // Pre-aloca UTxOs do operador (um por garrafa) para evitar contencao
-  const operatorUtxos = await cardano.allocateOperatorUtxos(readyBottles.length, 4_000_000)
-  if (operatorUtxos.length === 0) {
+  // Idempotência: reusa txs pendentes para `shredded` em vez de duplicar submit
+  const pendingByBottle = new Map<string, txsDb.BlockchainTx>()
+  const needsSubmit: typeof readyBottles = []
+  for (const bottle of readyBottles) {
+    const existing = await txsDb.findPendingByBottleAndStage(bottle.id, 'shredded')
+    if (existing) {
+      pendingByBottle.set(bottle.id, existing)
+    } else {
+      needsSubmit.push(bottle)
+    }
+  }
+
+  const operatorUtxos = needsSubmit.length > 0
+    ? await cardano.allocateOperatorUtxos(needsSubmit.length, 4_000_000)
+    : []
+  if (needsSubmit.length > 0 && operatorUtxos.length === 0) {
     throw new Error('Nenhum UTxO do operador disponível para submeter transações')
   }
 
-  // Submete tx de avanco para cada garrafa (tolerante a falhas)
   const results: { bottleId: string; txHash: string }[] = []
-  for (let i = 0; i < readyBottles.length; i++) {
-    const bottle = readyBottles[i]
+  for (const [bottleId, tx] of pendingByBottle) {
+    if (tx.tx_hash) results.push({ bottleId, txHash: tx.tx_hash })
+  }
+
+  for (let i = 0; i < needsSubmit.length; i++) {
+    const bottle = needsSubmit[i]
     if (i >= operatorUtxos.length) {
-      console.warn(`[shred] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${readyBottles.length}). Processe novamente após confirmação.`)
+      console.warn(`[shred] Sem UTxO do operador disponível para garrafa ${bottle.id} (${i + 1}/${needsSubmit.length}). Processe novamente após confirmação.`)
       break
     }
 

@@ -9,7 +9,7 @@ export async function addVolume(containerId: string, liters: number) {
   const id = validateUUID(containerId)
 
   const container = await containersDb.findById(id)
-  if (!container) throw new Error(`Container nao encontrado: ${id}`)
+  if (!container) throw new Error(`Container não encontrado: ${id}`)
   if (container.status === 'maintenance') throw new Error('Container em manutencao')
 
   const newVolume = Math.min(

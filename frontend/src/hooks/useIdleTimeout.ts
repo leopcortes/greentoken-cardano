@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef } from 'react';
 //
 // O hook NAO escuta eventos do DOM por si so - o caller deve chamar reset()
 // nos pontos relevantes (ex.: drop de garrafa, troca de container) para que
-// "atividade" seja explicita e nao ruido visual (movimento de mouse passa a
-// nao contar como atividade).
+// "atividade" seja explicita e não ruido visual (movimento de mouse passa a
+// não contar como atividade).
 export function useIdleTimeout(idleMs: number, onIdle: () => void, enabled: boolean = true) {
   const onIdleRef = useRef(onIdle);
   onIdleRef.current = onIdle;

@@ -25,7 +25,7 @@ export function WalletPage() {
   const { user: authUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  const userId = authUser?.role === 'recycler' ? authUser.userId : null;
+  const userId = authUser?.role === 'recycler' ? authUser.id : null;
 
   const [user, setUser] = useState<User | null>(null);
   const [balance, setBalance] = useState<GreenwalletBalance | null>(null);
@@ -147,8 +147,8 @@ export function WalletPage() {
           >
             <Shield size={16} className="text-warn flex-none mt-0.5" />
             <div className="text-xs text-warn leading-relaxed">
-              <strong>Carteira manual sem custodia greenwallet.</strong> Saldos on-chain
-              sao exibidos somente leitura - nao ha possibilidade de resgate de vouchers
+              <strong>Carteira manual sem custódia greenwallet.</strong> Saldos on-chain
+              são exibidos somente leitura - não há possibilidade de resgate de vouchers
               pelo sistema.
             </div>
           </div>
@@ -201,7 +201,7 @@ export function WalletPage() {
           >
             <Shield size={16} className="text-warn flex-none mt-0.5" />
             <div className="text-xs text-warn leading-relaxed">
-              <strong>Sem endereço Cardano associado.</strong> Voce ainda nao possui
+              <strong>Sem endereço Cardano associado.</strong> Voce ainda não possui
               uma greenwallet para receber recompensas.
             </div>
           </div>
@@ -211,14 +211,14 @@ export function WalletPage() {
           <div className="gt-card">
             <div className="flex justify-between items-center px-[18px] py-3.5 border-b border-line">
               <div>
-                <h3 className="text-sm font-semibold leading-tight">Transacoes on-chain</h3>
+                <h3 className="text-sm font-semibold leading-tight">Transações on-chain</h3>
                 <p className="text-[11px] text-ink-3 mt-0.5">
-                  Recompensas mintadas por estagio ·{' '}
+                  Recompensas mintadas por estágio ·{' '}
                   {txRows.length === 0
-                    ? 'Nenhuma transacao'
+                    ? 'Nenhuma transação'
                     : txRows.length === 1
-                      ? '1 transacao'
-                      : `${txRows.length} transacoes`}
+                      ? '1 transação'
+                      : `${txRows.length} transações`}
                 </p>
               </div>
               <button

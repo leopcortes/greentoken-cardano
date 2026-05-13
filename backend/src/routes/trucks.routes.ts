@@ -20,7 +20,7 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const truck = await trucksDb.findById(req.params.id as string)
-    if (!truck) return res.status(404).json({ error: 'Caminhao nao encontrado' })
+    if (!truck) return res.status(404).json({ error: 'Caminhao não encontrado' })
     res.json(truck)
   } catch (err: any) {
     res.status(500).json({ error: err.message })

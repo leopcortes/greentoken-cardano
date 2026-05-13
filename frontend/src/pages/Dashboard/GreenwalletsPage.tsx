@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Eye, EyeOff, QrCode, RefreshCw, Server, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, QrCode, RefreshCw, Shield, Wallet } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -87,8 +87,7 @@ export function GreenwalletsPage() {
         if (!alive) return;
         setUsers(data);
         if (data.length > 0) {
-          const firstRecycler = data.find((u) => u.role === 'recycler');
-          setSelectedUserId((firstRecycler ?? data[0]).id);
+          setSelectedUserId((data[0]).id);
         }
       })
       .catch((err) => {
@@ -549,8 +548,8 @@ export function GreenwalletsPage() {
 
       {selectedUser && selectedUser.wallet_address && (
         <div className="text-[11px] text-ink-4 text-center">
-          Saldos derivados diretamente de Blockfrost - independente do banco de dados.
-          Recompensas persistem on-chain mesmo se a tabela <span className="mono">rewards</span> for recriada.
+          Saldos derivados diretamente de Blockfrost, independente do banco de dados.
+          As recompensas persistem on-chain.
         </div>
       )}
 

@@ -25,7 +25,7 @@ export function validateAddress(addr: string): string {
 
 export function validateStage(stage: string): string {
   const valid = ['inserted', 'compacted', 'collected', 'atstation', 'shredded']
-  if (!valid.includes(stage)) throw new Error(`Estagio invalido: ${stage}`)
+  if (!valid.includes(stage)) throw new Error(`Estágio invalido: ${stage}`)
   return stage
 }
 

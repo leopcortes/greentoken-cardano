@@ -223,7 +223,7 @@ export function BalanceCard({
         <button
           type="button"
           disabled={isLegacy || totalGreentoken === 0}
-          onClick={() => toast.warning('Resgate ainda nao disponivel.')}
+          onClick={() => toast.warning('Resgate ainda não disponivel.')}
           className="inline-flex items-center gap-1.5 self-start mt-3.5 bg-gt-600 hover:bg-gt-700 disabled:bg-line disabled:text-ink-4 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-md text-[13px] font-semibold transition-colors"
           style={{ boxShadow: '0 2px 6px rgba(22,163,74,.3)' }}
         >
@@ -266,7 +266,7 @@ export function TxTable({ rows, hideADA }: TxTableProps) {
   if (rows.length === 0) {
     return (
       <div className="text-center py-9 px-4 text-ink-4 text-[13px] italic">
-        Nenhuma transacao on-chain registrada para este usuario.
+        Nenhuma transação on-chain registrada para este usuário.
       </div>
     );
   }
@@ -276,7 +276,7 @@ export function TxTable({ rows, hideADA }: TxTableProps) {
         <thead>
           <tr>
             <th className="text-left text-[11px] font-semibold text-ink-3 px-3 py-2.5 border-b border-line w-[110px]">
-              Direcao
+              Direção
             </th>
             <th className="text-left text-[11px] font-semibold text-ink-3 px-3 py-2.5 border-b border-line">
               Origem

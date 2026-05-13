@@ -8,38 +8,36 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  AuthMePayload,
   getAuthMe,
   getAuthToken,
-  loginOwner as apiLoginOwner,
-  loginRecycler as apiLoginRecycler,
+  login as apiLogin,
+  signup as apiSignup,
   setAuthToken,
   setUnauthorizedHandler,
+  type SignupPayload,
+  type SignupResponse,
   type User,
 } from '@/services/api';
 
 interface AuthState {
-  user: AuthMePayload | null;
-  // Dados completos do reciclador (quando role=recycler). null para owner ou
-  // antes da reidratacao.
-  recyclerProfile: User | null;
+  // User completo do banco (id, role, name, email, wallet_address, ...).
+  // null antes da reidratacao ou apos logout.
+  user: User | null;
   ready: boolean;
-  loginOwner: (password: string) => Promise<void>;
-  loginRecycler: (walletAddress: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (payload: SignupPayload) => Promise<SignupResponse>;
   logout: () => void;
 }
 
 const AuthCtx = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthMePayload | null>(null);
-  const [recyclerProfile, setRecyclerProfile] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
-    setRecyclerProfile(null);
   }, []);
 
   // Reidrata sessao a partir do token salvo em localStorage. Se /auth/me falhar
@@ -72,30 +70,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(() => {
       setAuthToken(null);
       setUser(null);
-      setRecyclerProfile(null);
     });
     return () => setUnauthorizedHandler(null);
   }, []);
 
-  const loginOwner = useCallback(async (password: string) => {
-    const { token } = await apiLoginOwner(password);
+  const login = useCallback(async (email: string, password: string) => {
+    const { token, user: u } = await apiLogin(email, password);
     setAuthToken(token);
-    const { user: u } = await getAuthMe();
     setUser(u);
-  }, []);
-
-  const loginRecycler = useCallback(async (walletAddress: string) => {
-    const { token, user: u } = await apiLoginRecycler(walletAddress);
-    setAuthToken(token);
-    setRecyclerProfile(u);
-    const { user: payload } = await getAuthMe();
-    setUser(payload);
     return u;
   }, []);
 
+  const signup = useCallback(async (payload: SignupPayload) => {
+    const resp = await apiSignup(payload);
+    setAuthToken(resp.token);
+    setUser(resp.user);
+    return resp;
+  }, []);
+
   const value = useMemo<AuthState>(
-    () => ({ user, recyclerProfile, ready, loginOwner, loginRecycler, logout }),
-    [user, recyclerProfile, ready, loginOwner, loginRecycler, logout],
+    () => ({ user, ready, login, signup, logout }),
+    [user, ready, login, signup, logout],
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

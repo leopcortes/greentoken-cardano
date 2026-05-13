@@ -49,10 +49,10 @@ export interface User {
   email: string;
   wallet_address: string | null;
   pubkey_hash: string | null;
-  // true se o usuario tem mnemonica custodiada (greenwallet); false para
+  // true se o usuário tem mnemonica custodiada (greenwallet); false para
   // usuarios legados criados antes da migracao 002 com wallet_address manual.
   has_greenwallet: boolean;
-  // Migracao pendente: greenwallet nova gerada mas ainda nao confirmada.
+  // Migracao pendente: greenwallet nova gerada mas ainda não confirmada.
   pending_wallet_address: string | null;
   has_pending_migration: boolean;
   migration_initiated_at: string | null;
@@ -179,24 +179,44 @@ export interface RouteStop {
 
 // --- Auth ---
 
-export type AuthMePayload =
-  | { role: 'owner'; iat: number; exp: number }
-  | { role: 'recycler'; userId: string; walletAddress: string; iat: number; exp: number };
+export interface LoginResponse {
+  token: string;
+  user: User;
+}
 
-export const loginOwner = (password: string) =>
-  request<{ token: string; role: 'owner' }>(
-    '/auth/owner',
-    { method: 'POST', body: JSON.stringify({ password }) },
+export type SignupMode = 'new_greenwallet' | 'restore_greenwallet' | 'external_wallet';
+
+export interface SignupPayload {
+  name: string;
+  email: string;
+  password: string;
+  mode: SignupMode;
+  mnemonic?: string[];        // mode='restore_greenwallet'
+  wallet_address?: string;    // mode='external_wallet'
+}
+
+export interface SignupResponse {
+  token: string;
+  user: User;
+  // Mnemonic so vem quando mode='new_greenwallet'. Mostrar uma vez e não
+  // persistir no cliente.
+  mnemonic?: string[];
+}
+
+export const login = (email: string, password: string) =>
+  request<LoginResponse>(
+    '/auth/login',
+    { method: 'POST', body: JSON.stringify({ email, password }) },
   );
 
-export const loginRecycler = (walletAddress: string) =>
-  request<{ token: string; user: User }>(
-    '/auth/recycler',
-    { method: 'POST', body: JSON.stringify({ wallet_address: walletAddress }) },
+export const signup = (payload: SignupPayload) =>
+  request<SignupResponse>(
+    '/auth/signup',
+    { method: 'POST', body: JSON.stringify(payload) },
   );
 
 export const getAuthMe = () =>
-  request<{ user: AuthMePayload }>('/auth/me');
+  request<{ user: User; role: 'owner' | 'recycler' }>('/auth/me');
 
 // Endpoint publico usado pelo terminal para listar recicladores no modal de login
 // (modo demo). Retorna campos minimos.

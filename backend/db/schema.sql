@@ -3,13 +3,14 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- recyclers e owner
 -- A greenwallet (mnemonica + endereço) e gerada no backend ao criar
--- usuarios novos. wallet_address/pubkey_hash sao NULL apenas para users
+-- usuarios novos. wallet_address/pubkey_hash são NULL apenas para users
 -- legados criados antes da migracao 002 (sem greenwallet).
 CREATE TABLE users (
   id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   role                   VARCHAR(10) NOT NULL CHECK (role IN ('recycler', 'owner')),
   name                   VARCHAR(255) NOT NULL,
   email                  VARCHAR(255) UNIQUE NOT NULL,
+  password_hash          VARCHAR(255),
   wallet_address         VARCHAR(255),
   pubkey_hash            VARCHAR(255),
   mnemonic_ciphertext    BYTEA,
@@ -18,6 +19,8 @@ CREATE TABLE users (
   encryption_key_version SMALLINT,
   created_at             TIMESTAMP   NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_users_email_lower ON users (LOWER(email));
 
 -- Cada container pertence a um owner
 CREATE TABLE containers (
@@ -138,7 +141,7 @@ CREATE TABLE rewards (
 
 -- indices
 
--- Buscar garrafas por usuario
+-- Buscar garrafas por usuário
 CREATE INDEX idx_bottles_user_id       ON bottles(user_id);
 
 -- Buscar garrafas por container
@@ -156,7 +159,7 @@ CREATE INDEX idx_blockchain_txs_status ON blockchain_txs(status);
 -- Buscar txs por garrafa
 CREATE INDEX idx_blockchain_txs_bottle ON blockchain_txs(bottle_id);
 
--- Buscar recompensas por usuario
+-- Buscar recompensas por usuário
 CREATE INDEX idx_rewards_user_id       ON rewards(user_id);
 
 -- Buscar garrafas por rota (coleta em andamento)
@@ -181,7 +184,7 @@ INSERT INTO users (role, name, email)
 VALUES (
   'owner',
   'Admin Greentoken',
-  'owner@greentoken.io'
+  'admin@greentoken.io'
 )
 ON CONFLICT (email) DO NOTHING;
 

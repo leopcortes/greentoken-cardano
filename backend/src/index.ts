@@ -10,6 +10,8 @@ import { router as trucksRouter } from './routes/trucks.routes'
 import { router as routesRouter } from './routes/routes.routes'
 import { router as stationsRouter } from './routes/stations.routes'
 import { router as operatorRouter } from './routes/operator.routes'
+import * as usersDb from './db/queries/users'
+import { hashPassword } from './auth/passwords'
 
 const app = express()
 
@@ -35,6 +37,37 @@ app.get('/health', async (_req, res) => {
   }
 })
 
+// Garante que existe um owner com password_hash. Cobre 3 cenarios:
+//   1) Não existe owner com OWNER_EMAIL -> cria.
+//   2) Existe mas password_hash IS NULL (user legado) -> define a senha.
+//   3) Ja tem hash -> no-op.
+async function bootstrapOwner() {
+  const email = config.OWNER_EMAIL
+  const existing = await usersDb.getAuthRecord(email)
+  if (!existing) {
+    const hash = await hashPassword(config.OWNER_PASSWORD)
+    await usersDb.create({
+      role: 'owner',
+      name: 'Admin Greentoken',
+      email,
+      password_hash: hash,
+    })
+    console.log(`[bootstrap] Owner criado: ${email}`)
+    return
+  }
+  if (existing.role !== 'owner') {
+    console.warn(`[bootstrap] Usuário com email ${email} existe mas não e owner — ignorando`)
+    return
+  }
+  if (!existing.password_hash) {
+    const hash = await hashPassword(config.OWNER_PASSWORD)
+    await usersDb.setPasswordHash(existing.id, hash)
+    console.log(`[bootstrap] Senha do owner ${email} definida via OWNER_PASSWORD`)
+    return
+  }
+  console.log(`[bootstrap] Owner ${email} ja configurado`)
+}
+
 // Startup
 async function main() {
   // Testa conexao com o banco
@@ -43,6 +76,13 @@ async function main() {
     console.log('[db] Conectado ao PostgreSQL')
   } catch (err) {
     console.error('[db] Falha ao conectar:', err)
+    process.exit(1)
+  }
+
+  try {
+    await bootstrapOwner()
+  } catch (err) {
+    console.error('[bootstrap] Falha ao configurar owner:', err)
     process.exit(1)
   }
 

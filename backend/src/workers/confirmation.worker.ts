@@ -23,7 +23,7 @@ async function processTransaction(tx: txsDb.BlockchainTx): Promise<void> {
   // Marca tx como confirmada
   await txsDb.confirm(tx.id)
 
-  // Atualiza o estagio da garrafa e o UTxO
+  // Atualiza o estágio da garrafa e o UTxO
   await bottlesDb.updateStage(tx.bottle_id, tx.stage)
   await bottlesDb.updateUtxo(tx.bottle_id, tx.tx_hash, SCRIPT_OUTPUT_INDEX)
 

@@ -22,14 +22,14 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const station = await stationsDb.findById(req.params.id as string)
-    if (!station) return res.status(404).json({ error: 'Estacao nao encontrada' })
+    if (!station) return res.status(404).json({ error: 'estação não encontrada' })
     res.json(station)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
 })
 
-// POST /stations - cria uma nova estacao
+// POST /stations - cria uma nova estação
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { name, location_name, latitude, longitude } = req.body
@@ -40,13 +40,13 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json(station)
   } catch (err: any) {
     if (err?.code === '23505') {
-      return res.status(409).json({ error: 'Ja existe uma estacao com esse nome neste local' })
+      return res.status(409).json({ error: 'Ja existe uma estação com esse nome neste local' })
     }
     res.status(500).json({ error: err.message })
   }
 })
 
-// GET /stations/:id/bottles - lista garrafas na estacao
+// GET /stations/:id/bottles - lista garrafas na estação
 router.get('/:id/bottles', async (req: Request, res: Response) => {
   try {
     const bottles = await bottlesDb.findByStationId(req.params.id as string)
@@ -56,7 +56,7 @@ router.get('/:id/bottles', async (req: Request, res: Response) => {
   }
 })
 
-// POST /stations/:id/shred - tritura todas as garrafas atstation da estacao
+// POST /stations/:id/shred - tritura todas as garrafas atstation da estação
 router.post('/:id/shred', async (req: Request, res: Response) => {
   try {
     const result = await bottleService.shredStation(req.params.id as string)
@@ -65,7 +65,7 @@ router.post('/:id/shred', async (req: Request, res: Response) => {
       ...result,
     })
   } catch (err: any) {
-    if (err.message.includes('Nenhuma') || err.message.includes('nao encontrada')) {
+    if (err.message.includes('Nenhuma') || err.message.includes('não encontrada')) {
       return res.status(400).json({ error: err.message })
     }
     res.status(500).json({ error: err.message })

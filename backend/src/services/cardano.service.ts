@@ -38,6 +38,39 @@ async function cli(...args: string[]): Promise<string> {
   return stdout.trim()
 }
 
+// `cardano-cli transaction submit` falha com erros transitórios do mempool
+// (MempoolTxTooSlow quando a validação leva >limite, falhas de socket etc.)
+// que somem se reenviarmos a mesma tx pouco depois. Se o nó já aceitou a tx,
+// a segunda chamada retorna sucesso silencioso (ou um sinal explícito de
+// "already in mempool"), então retry é seguro.
+async function submitSignedTx(signedFile: string): Promise<void> {
+  const submitArgs = [
+    'conway', 'transaction', 'submit',
+    '--tx-file', signedFile,
+    '--testnet-magic', config.CARDANO_NODE_MAGIC,
+    '--socket-path', config.CARDANO_NODE_SOCKET_PATH,
+  ]
+
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await cli(...submitArgs)
+      return
+    } catch (err: any) {
+      const stderr = String(err?.stderr ?? err?.message ?? '')
+      const alreadyAccepted = /already in (mempool|ledger)|TxAlreadyInMempool/i.test(stderr)
+      if (alreadyAccepted) return
+
+      const transient = /MempoolTxTooSlow|ConwayMempoolFailure|Resource temporarily unavailable|connection refused/i.test(stderr)
+      if (!transient || attempt === maxAttempts) throw err
+
+      const waitMs = attempt * 1500
+      console.warn(`[cardano] Submit transitório falhou (tentativa ${attempt}/${maxAttempts}), retry em ${waitMs}ms: ${stderr.slice(0, 200).replace(/\n/g, ' ')}`)
+      await new Promise(resolve => setTimeout(resolve, waitMs))
+    }
+  }
+}
+
 // cardano-cli 10.x retorna JSON em alguns comandos (ex: transaction txid → {"txhash":"abc..."})
 function parseTxHash(raw: string): string {
   try {
@@ -261,12 +294,7 @@ export async function createBottle(params: {
   )
   const txHash = parseTxHash(txHashRaw)
 
-  // Submit
-  await cli('conway', 'transaction', 'submit',
-    '--tx-file', signedFile,
-    '--testnet-magic', config.CARDANO_NODE_MAGIC,
-    '--socket-path', config.CARDANO_NODE_SOCKET_PATH,
-  )
+  await submitSignedTx(signedFile)
 
   return txHash
 }
@@ -286,7 +314,7 @@ export async function advanceStage(params: {
   const { bottleId, targetStage, userAddr, utxoHash, utxoIndex } = params
 
   const sourceStage = TRANSITIONS[targetStage]
-  if (!sourceStage) throw new Error(`Transicao invalida para estagio: ${targetStage}`)
+  if (!sourceStage) throw new Error(`Transicao invalida para estágio: ${targetStage}`)
 
   const scriptAddr = await readAddr(paths.scriptAddr)
   const operatorAddr = await readAddr(paths.operatorAddr)
@@ -341,12 +369,7 @@ export async function advanceStage(params: {
   )
   const txHash = parseTxHash(txHashRaw)
 
-  // Submit
-  await cli('conway', 'transaction', 'submit',
-    '--tx-file', signedFile,
-    '--testnet-magic', config.CARDANO_NODE_MAGIC,
-    '--socket-path', config.CARDANO_NODE_SOCKET_PATH,
-  )
+  await submitSignedTx(signedFile)
 
   return txHash
 }

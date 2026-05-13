@@ -34,7 +34,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const container = await containersDb.findById(req.params.id as string)
-    if (!container) return res.status(404).json({ error: 'Container nao encontrado' })
+    if (!container) return res.status(404).json({ error: 'Container não encontrado' })
     res.json(container)
   } catch (err: any) {
     res.status(500).json({ error: err.message })

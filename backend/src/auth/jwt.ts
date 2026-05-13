@@ -3,6 +3,7 @@ import { config } from '../config'
 
 export type OwnerTokenPayload = {
   role: 'owner'
+  userId: string
 }
 
 export type RecyclerTokenPayload = {
@@ -13,8 +14,8 @@ export type RecyclerTokenPayload = {
 
 export type AuthPayload = OwnerTokenPayload | RecyclerTokenPayload
 
-export function signOwnerToken(): string {
-  const payload: OwnerTokenPayload = { role: 'owner' }
+export function signOwnerToken(userId: string): string {
+  const payload: OwnerTokenPayload = { role: 'owner', userId }
   return jwt.sign(payload, config.AUTH_JWT_SECRET, {
     expiresIn: `${config.OWNER_TOKEN_TTL_HOURS}h`,
   })
@@ -32,8 +33,11 @@ export function verifyToken(raw: string): AuthPayload {
   if (decoded.role !== 'owner' && decoded.role !== 'recycler') {
     throw new Error('Token com role invalida')
   }
-  if (decoded.role === 'recycler' && (!decoded.userId || !decoded.walletAddress)) {
-    throw new Error('Token de recycler sem userId/walletAddress')
+  if (!decoded.userId) {
+    throw new Error('Token sem userId')
+  }
+  if (decoded.role === 'recycler' && !decoded.walletAddress) {
+    throw new Error('Token de recycler sem walletAddress')
   }
   return decoded
 }
