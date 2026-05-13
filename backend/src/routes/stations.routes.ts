@@ -2,8 +2,11 @@ import { Router, Request, Response } from 'express'
 import * as stationsDb from '../db/queries/stations'
 import * as bottlesDb from '../db/queries/bottles'
 import * as bottleService from '../services/bottle.service'
+import { requireOwner } from '../auth/middleware'
 
 export const router = Router()
+
+router.use(requireOwner)
 
 // GET /stations - lista estacoes de tratamento
 router.get('/', async (_req: Request, res: Response) => {

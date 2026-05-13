@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express'
 import * as routesDb from '../db/queries/routes'
 import * as bottleService from '../services/bottle.service'
+import { requireOwner } from '../auth/middleware'
 
 export const router = Router()
+
+router.use(requireOwner)
 
 // GET /routes - lista rotas com detalhes
 router.get('/', async (_req: Request, res: Response) => {

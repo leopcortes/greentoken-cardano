@@ -1,15 +1,33 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { RequireRole } from '@/auth/RequireRole';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
-import { CurrentBottlePage } from './pages/GreenStation/CurrentBottlePage';
-import { CurrentWalletPage } from './pages/GreenStation/CurrentWalletPage';
-import { CurrentContainerPage } from './pages/GreenStation/CurrentContainerPage';
-import { InventoryPage } from './pages/GreenStation/InventoryPage';
-import { PipelinePanel } from './pages/GreenStation/PipelinePanel';
-import { StationProvider } from './pages/GreenStation/StationContext';
-import { TopBar } from './pages/GreenStation/TopBar';
+import { CurrentBottlePage } from './pages/Terminal/CurrentBottlePage';
+import { CurrentWalletPage } from './pages/Terminal/CurrentWalletPage';
+import { CurrentContainerPage } from './pages/Terminal/CurrentContainerPage';
+import { InventoryPage } from './pages/Terminal/InventoryPage';
+import { PipelinePanel } from './pages/Terminal/PipelinePanel';
+import { StationProvider } from './pages/Terminal/StationContext';
+import { TopBar } from './pages/Terminal/TopBar';
+import { TerminalIdleScreen } from './pages/Terminal/TerminalIdleScreen';
+import { WalletPage } from './pages/Wallet/WalletPage';
 
-function HomePage() {
+function TerminalRoute() {
+  const { user, ready } = useAuth();
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-ink-3 text-sm">
+        Carregando...
+      </div>
+    );
+  }
+  // Terminal so' libera a UI da station para recyclers logados. Owner logado vai
+  // direto para o dashboard - se cair aqui, mostramos o idle screen para evitar
+  // confusao (operador nao deve inserir garrafas com token de owner).
+  if (!user || user.role !== 'recycler') {
+    return <TerminalIdleScreen />;
+  }
   return (
     <StationProvider>
       <div className="min-h-screen lg:h-screen flex flex-col bg-bg lg:overflow-hidden">
@@ -35,19 +53,36 @@ function HomePage() {
           </div>
         </main>
       </div>
-      <Toaster position="bottom-center" richColors closeButton />
     </StationProvider>
   );
 }
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Toaster position="bottom-center" richColors closeButton />
+        <Routes>
+          <Route path="/" element={<TerminalRoute />} />
+          <Route
+            path="/wallet"
+            element={
+              <RequireRole role="recycler" redirectTo="/">
+                <WalletPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireRole role="owner" redirectTo="/">
+                <DashboardPage />
+              </RequireRole>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

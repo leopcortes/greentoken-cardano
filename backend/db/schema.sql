@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- recyclers e owner
--- A greenwallet (mnemonica + endereco) e gerada no backend ao criar
+-- A greenwallet (mnemonica + endereço) e gerada no backend ao criar
 -- usuarios novos. wallet_address/pubkey_hash sao NULL apenas para users
 -- legados criados antes da migracao 002 (sem greenwallet).
 CREATE TABLE users (

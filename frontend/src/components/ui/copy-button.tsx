@@ -5,10 +5,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface CopyButtonProps {
   value: string;
+  direction?: 'top' | 'right' | 'bottom' | 'left';
   className?: string;
 }
 
-export function CopyButton({ value, className = '' }: CopyButtonProps) {
+export function CopyButton({ value, direction = 'right', className = '' }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -35,7 +36,7 @@ export function CopyButton({ value, className = '' }: CopyButtonProps) {
           </Button>
         </TooltipTrigger>
 
-        <TooltipContent className="bg-white text-black border border-gray-100" side='right'>
+        <TooltipContent className="bg-white text-black border border-gray-100" side={direction}>
           <p>{copied ? 'Copiado!' : 'Copiar'}</p>
         </TooltipContent>
       </Tooltip>

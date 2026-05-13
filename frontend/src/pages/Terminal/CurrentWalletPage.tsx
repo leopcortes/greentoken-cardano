@@ -1,25 +1,29 @@
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { LogOut, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CopyButton } from '@/components/ui/copy-button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useStation } from './StationContext';
+import { useAuth } from '@/auth/AuthContext';
 import { truncMid } from '@/lib/helpers';
 
 export function CurrentWalletPage() {
-  const {
-    tokens, bumpKey, txLog, walletRef,
-    users, currentUser, currentUserId, setCurrentUserId,
-    activeStage, inFlight,
-  } = useStation();
-  // Bloqueia troca de reciclador enquanto há garrafas em voo (as confirmações
-  // pendentes pertencem ao usuário atual).
+  const { tokens, bumpKey, txLog, walletRef, currentUser, activeStage, inFlight } = useStation();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Bloqueia logout enquanto ha garrafas em voo (confirmacoes on-chain ainda
+  // referenciam o user_id atual). Mostramos um toast explicando.
   const pipelineBusy = activeStage >= 0 || inFlight.length > 0;
+
+  const onLogout = () => {
+    if (pipelineBusy) {
+      toast.warning('Aguarde as garrafas em andamento finalizarem antes de sair.', { duration: 6000 });
+      return;
+    }
+    logout();
+    navigate('/', { replace: true });
+  };
 
   return (
     <div ref={walletRef} className="gt-card p-[18px] flex-1 flex min-h-0 flex-col">
@@ -27,35 +31,33 @@ export function CurrentWalletPage() {
         <div className="min-w-0 flex-1">
           <div className="gt-eyebrow">Carteira Cardano</div>
           <div className="text-sm font-semibold text-ink mt-1 truncate">
-            {currentUser?.name ?? 'Nenhum reciclador'}
+            {currentUser?.name ?? '...'}
           </div>
           <div className="mono text-[10px] mt-0.5 flex gap-1 items-center text-ink-4">
             {currentUser?.wallet_address ? truncMid(currentUser.wallet_address, 8, 6) : '-'}
             {currentUser?.wallet_address && <CopyButton value={currentUser.wallet_address} />}
           </div>
         </div>
-        <Select
-          value={currentUserId ?? undefined}
-          onValueChange={(v) => setCurrentUserId(v)}
-          disabled={pipelineBusy}
-        >
-          <SelectTrigger className="h-8 w-[150px] text-[11px] flex-none">
-            <SelectValue placeholder="Selecionar" />
-          </SelectTrigger>
-          <SelectContent>
-            {users.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-center text-muted-foreground">
-                Nenhum reciclador
-              </div>
-            ) : (
-              users.map((u) => (
-                <SelectItem key={u.id} value={u.id} className="text-[11px]">
-                  {u.name}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1.5 flex-none">
+          <Link
+            to="/wallet"
+            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-[10px] font-semibold no-underline hover:bg-yellow-100 transition-colors"
+            title="Ver carteira completa"
+          >
+            <Wallet size={11} />
+            Carteira
+          </Link>
+          <button
+            type="button"
+            onClick={onLogout}
+            disabled={pipelineBusy}
+            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-red-300 bg-red-100 text-red-800 text-[10px] font-semibold hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Encerrar sessao"
+          >
+            <LogOut size={11} />
+            Sair
+          </button>
+        </div>
       </div>
 
       <div className="flex justify-between items-end mb-3">

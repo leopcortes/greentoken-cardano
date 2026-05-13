@@ -2,6 +2,7 @@ import express from 'express'
 import { config } from './config'
 import { pool } from './db/pool'
 import { startConfirmationWorker } from './workers/confirmation.worker'
+import { router as authRouter } from './routes/auth.routes'
 import { router as usersRouter } from './routes/users.routes'
 import { router as bottlesRouter } from './routes/bottles.routes'
 import { router as containersRouter } from './routes/containers.routes'
@@ -14,6 +15,7 @@ const app = express()
 app.use(express.json())
 
 // Rotas
+app.use('/auth', authRouter)
 app.use('/users', usersRouter)
 app.use('/bottles', bottlesRouter)
 app.use('/containers', containersRouter)

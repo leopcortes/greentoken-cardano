@@ -1,10 +1,38 @@
 const BASE = '/api';
 
+// Token de autenticacao injetado em todas as chamadas. Atualizado pelo
+// AuthContext via setAuthToken() e tambem persistido em localStorage para
+// reidratar a sessao no reload.
+let authToken: string | null =
+  typeof window !== 'undefined' ? window.localStorage.getItem('gt.authToken') : null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (typeof window === 'undefined') return;
+  if (token) window.localStorage.setItem('gt.authToken', token);
+  else window.localStorage.removeItem('gt.authToken');
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+// Callback global para quando o servidor responder 401/403 - usado pelo
+// AuthContext para limpar a sessao expirada e voltar para a tela de idle.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && onUnauthorized) onUnauthorized();
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status}: ${body}`);
@@ -24,6 +52,10 @@ export interface User {
   // true se o usuario tem mnemonica custodiada (greenwallet); false para
   // usuarios legados criados antes da migracao 002 com wallet_address manual.
   has_greenwallet: boolean;
+  // Migracao pendente: greenwallet nova gerada mas ainda nao confirmada.
+  pending_wallet_address: string | null;
+  has_pending_migration: boolean;
+  migration_initiated_at: string | null;
   created_at: string;
 }
 
@@ -145,6 +177,32 @@ export interface RouteStop {
   container_name: string;
 }
 
+// --- Auth ---
+
+export type AuthMePayload =
+  | { role: 'owner'; iat: number; exp: number }
+  | { role: 'recycler'; userId: string; walletAddress: string; iat: number; exp: number };
+
+export const loginOwner = (password: string) =>
+  request<{ token: string; role: 'owner' }>(
+    '/auth/owner',
+    { method: 'POST', body: JSON.stringify({ password }) },
+  );
+
+export const loginRecycler = (walletAddress: string) =>
+  request<{ token: string; user: User }>(
+    '/auth/recycler',
+    { method: 'POST', body: JSON.stringify({ wallet_address: walletAddress }) },
+  );
+
+export const getAuthMe = () =>
+  request<{ user: AuthMePayload }>('/auth/me');
+
+// Endpoint publico usado pelo terminal para listar recicladores no modal de login
+// (modo demo). Retorna campos minimos.
+export const getRecyclersForTerminal = () =>
+  request<Array<{ id: string; name: string; wallet_address: string }>>('/auth/recyclers');
+
 // --- Users ---
 
 export const getUsers = (role?: string) =>
@@ -167,6 +225,31 @@ export const getGreenwallet = (id: string) =>
 export const getGreenwalletBalance = (id: string) =>
   request<GreenwalletBalance>(`/users/${id}/greenwallet/balance`);
 
+export interface MigrationInitiated {
+  user: User;
+  new_address: string;
+  old_address: string | null;
+  mnemonic: string[];
+}
+
+export const initiateGreenwalletMigration = (id: string) =>
+  request<MigrationInitiated>(
+    `/users/${id}/greenwallet/migrate`,
+    { method: 'POST' },
+  );
+
+export const confirmGreenwalletMigration = (id: string) =>
+  request<{ user: User }>(
+    `/users/${id}/greenwallet/migrate/confirm`,
+    { method: 'POST' },
+  );
+
+export const cancelGreenwalletMigration = (id: string) =>
+  request<{ user: User }>(
+    `/users/${id}/greenwallet/migrate/cancel`,
+    { method: 'POST' },
+  );
+
 // --- Bottles ---
 
 export const getBottles = (params?: { user_id?: string; stage?: string; container_id?: string; container_name?: string; route_id?: string; station_id?: string; station_name?: string; }) => {
@@ -185,7 +268,9 @@ export const getBottles = (params?: { user_id?: string; stage?: string; containe
 export const getBottle = (id: string) =>
   request<{ bottle: Bottle; txs: BlockchainTx[]; rewards: Reward[] }>(`/bottles/${id}`);
 
-export const createBottle = (data: { user_id: string; container_id: string; volume_ml: number }) =>
+// Reciclador logado: o backend usa o userId do token; user_id no body e' ignorado.
+// Owner: deve informar user_id explicitamente (criacao admin via dashboard).
+export const createBottle = (data: { user_id?: string; container_id: string; volume_ml: number }) =>
   request<{ bottle: Bottle; tx_hash: string; message: string }>(
     '/bottles', { method: 'POST', body: JSON.stringify(data) }
   );

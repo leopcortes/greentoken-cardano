@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express'
 import * as trucksDb from '../db/queries/trucks'
+import { requireOwner } from '../auth/middleware'
 
 export const router = Router()
+
+router.use(requireOwner)
 
 // GET /trucks - lista caminhoes
 router.get('/', async (_req: Request, res: Response) => {
