@@ -135,7 +135,7 @@ const RESERVATION_TTL_MS = 60_000
 const reservedTxIns = new Set<string>()
 let allocLock: Promise<void> = Promise.resolve()
 
-// Aloca até `count` UTxOs do operador (pode retornar menos se houver escassez —
+// Aloca até `count` UTxOs do operador (pode retornar menos se houver escassez -
 // callers em batch tratam best-effort; callers singulares devem checar o tamanho
 // do array ou usar allocateOperatorUtxo).
 export async function allocateOperatorUtxos(

@@ -201,7 +201,7 @@ export function WalletPage() {
           >
             <Shield size={16} className="text-warn flex-none mt-0.5" />
             <div className="text-xs text-warn leading-relaxed">
-              <strong>Sem endereco Cardano associado.</strong> Voce ainda nao possui
+              <strong>Sem endereço Cardano associado.</strong> Voce ainda nao possui
               uma greenwallet para receber recompensas.
             </div>
           </div>

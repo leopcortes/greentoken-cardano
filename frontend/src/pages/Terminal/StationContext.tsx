@@ -265,12 +265,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
   // Timeout de inatividade do terminal: ao expirar, desloga o reciclador e volta
   // para a tela idle. Reset disparado por interacoes explicitas (drop, pick,
   // troca de container) - ver chamadas a idle.reset() abaixo.
-  const TERMINAL_IDLE_MS = 3 * 60_000;
+  const TERMINAL_IDLE_MS = 5 * 60_000;
   const idle = useIdleTimeout(
     TERMINAL_IDLE_MS,
     () => {
       toast.info('Sessão expirada por inatividade. Voltando para a tela inicial.', {
-        duration: 6000,
+        duration: 10000,
       });
       logout();
       navigate('/', { replace: true });
@@ -425,7 +425,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         // Erro de rede transiente: mantém, retenta no próximo ciclo (a menos que tenha esgotado).
         if (timedOut) {
           toast.warning(
-            `Confirmação de ${bottle.bottleIdText} demorando demais — verifique em /dashboard/bottles.`,
+            `Confirmação de ${bottle.bottleIdText} demorando demais - verifique em /dashboard/bottles.`,
             { duration: 12000 },
           );
           replaceInventoryBottle(bottle.inventoryId);
@@ -476,7 +476,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         }
         setCrushed((c) => c + 1);
         toast.success(
-          `${bottle.bottleIdText}: inserção confirmada — compactando…`,
+          `${bottle.bottleIdText}: inserção confirmada - compactando…`,
           { duration: 3000 },
         );
         rewardsTouched = true;
@@ -515,13 +515,13 @@ export function StationProvider({ children }: { children: ReactNode }) {
         rewardsTouched = true;
         containersTouched = true;
         compactedTxHash = compactedTx.tx_hash ?? null;
-        // garrafa finalizou o pipeline — não re-adicionar a `next`.
+        // garrafa finalizou o pipeline - não re-adicionar a `next`.
         continue;
       }
 
       if (timedOut) {
         toast.warning(
-          `Compactação de ${bottle.bottleIdText} demorando demais — verifique em /dashboard/bottles.`,
+          `Compactação de ${bottle.bottleIdText} demorando demais - verifique em /dashboard/bottles.`,
           { duration: 12000 },
         );
         replaceInventoryBottle(bottle.inventoryId);
@@ -635,7 +635,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
             compactedTxHash: null,
           },
         ]);
-        // Slot do inventário libera imediatamente — a garrafa já está "no
+        // Slot do inventário libera imediatamente - a garrafa já está "no
         // container" do ponto de vista do usuário.
         replaceInventoryBottle(b.id);
         schedulePoll();

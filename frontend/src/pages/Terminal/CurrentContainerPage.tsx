@@ -127,7 +127,7 @@ export function CurrentContainerPage() {
           </span>
         ) : inFlight.length > 0 ? (
           <span>
-            <strong className="text-gt-700">{inFlight.length}</strong> garrafa(s) confirmando on-chain — arraste outra para enfileirar.
+            <strong className="text-gt-700">{inFlight.length}</strong> garrafa(s) confirmando on-chain - arraste outra para enfileirar.
           </span>
         ) : (
           'Arraste uma garrafa do inventário.'

@@ -8,7 +8,7 @@
 --
 -- Fluxo:
 --   1. POST /users/:id/greenwallet/migrate   -> preenche pending_*
---   2. Usuario transfere GTs off-app (Lace -> novo endereco)
+--   2. Usuario transfere GTs off-app (Lace -> novo endereço)
 --   3. POST /users/:id/greenwallet/migrate/confirm -> swap pending_* -> definitivos
 --
 -- Cancelar = setar todos os pending_* para NULL.

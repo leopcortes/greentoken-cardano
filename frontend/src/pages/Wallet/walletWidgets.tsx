@@ -93,18 +93,18 @@ export function QrModal({ open, user, onClose }: QrModalProps) {
         </div>
 
         <div className="bg-bg-elev border border-line rounded-md p-3 mb-3">
-          <div className="gt-eyebrow mb-1.5">Endereco Cardano</div>
+          <div className="gt-eyebrow mb-1.5">Endereço Cardano</div>
           <div className="flex items-center gap-1.5">
             <span className="mono text-[11px] text-ink-2 break-all flex-1 leading-relaxed">
               {user.wallet_address}
             </span>
-            <CopyButton value={user.wallet_address} />
+            <CopyButton value={user.wallet_address} direction="bottom" />
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-ink-3">
           <span className="gt-chip gt-chip--cdn whitespace-nowrap flex-shrink-0">Cardano · preprod</span>
-          <span>Envie apenas tokens preprod para este endereco.</span>
+          <span>Envie apenas tokens preprod para este endereço.</span>
         </div>
       </DialogContent>
     </Dialog>
@@ -388,10 +388,10 @@ export function IdentityStrip({ user, onShowQr }: IdentityStripProps) {
       <div className="self-stretch w-px bg-line" />
 
       <div className="flex-1 min-w-0">
-        <div className="gt-eyebrow mb-1">Endereco Cardano</div>
+        <div className="gt-eyebrow mb-1">Endereço Cardano</div>
         <div className="flex items-center gap-1.5">
           <span className="mono text-xs text-ink-2 truncate flex-1">
-            {user.wallet_address ?? '- sem endereco associado -'}
+            {user.wallet_address ?? '- sem endereço associado -'}
           </span>
           {user.wallet_address && (
             <>

@@ -4,9 +4,10 @@
 interface QrCodeMockProps {
   size?: number;
   className?: string;
+  scanning?: boolean;
 }
 
-export function QrCodeMock({ size = 160, className }: QrCodeMockProps) {
+export function QrCodeMock({ size = 160, className, scanning = false }: QrCodeMockProps) {
   // Grade 21x21 (versao 1 do padrao QR) com 3 finder patterns nos cantos
   // + algumas celulas pseudo-aleatorias. Padrao fixo para nao parecer
   // animado entre renders.
@@ -43,7 +44,13 @@ export function QrCodeMock({ size = 160, className }: QrCodeMockProps) {
       className={className}
       role="img"
       aria-label="QR code de exemplo"
-      style={{ background: 'white', padding: '6px', borderRadius: '8px' }}
+      style={{
+        background: 'white',
+        padding: '6px',
+        borderRadius: '8px',
+        boxShadow: scanning ? '0 0 0 2px rgba(34,197,94,0.6)' : undefined,
+        transition: 'box-shadow 150ms ease',
+      }}
     >
       {/* Finder patterns: borda externa 7x7, espaco branco, miolo 3x3 */}
       {finderPositions.map(([fx, fy], i) => (
@@ -57,6 +64,18 @@ export function QrCodeMock({ size = 160, className }: QrCodeMockProps) {
       {cells.map(([x, y], i) => (
         <rect key={`cell-${i}`} x={x} y={y} width={1} height={1} fill="black" />
       ))}
+      {/* Linha de scan animada (SMIL) - so' aparece quando scanning=true */}
+      {scanning && (
+        <rect x={0} width={21} height={0.8} fill="rgba(34,197,94,0.85)">
+          <animate
+            attributeName="y"
+            from="-1"
+            to="21"
+            dur="0.9s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      )}
     </svg>
   );
 }

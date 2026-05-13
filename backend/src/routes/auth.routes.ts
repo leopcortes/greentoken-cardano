@@ -32,7 +32,7 @@ router.post('/owner', async (req: Request, res: Response) => {
 })
 
 // POST /auth/recycler - "login" do reciclador no terminal informando o wallet_address.
-// Simula o futuro QR + assinatura: o front identifica o usuario pelo endereco da
+// Simula o futuro QR + assinatura: o front identifica o usuario pelo endereço da
 // greenwallet. Nao ha senha; em producao isso seria substituido por uma prova
 // criptografica (CIP-30) de posse da chave privada.
 router.post('/recycler', async (req: Request, res: Response) => {
@@ -64,7 +64,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
 })
 
 // GET /auth/recyclers - lista publica e' minima de recicladores para o "modo demo"
-// do terminal (selecionar da lista em vez de digitar o endereco). Retorna apenas
+// do terminal (selecionar da lista em vez de digitar o endereço). Retorna apenas
 // id, name e wallet_address - sem email, saldos ou outros dados sensiveis.
 // Em producao seria removida em favor de scan de QR code.
 router.get('/recyclers', async (_req: Request, res: Response) => {

@@ -241,7 +241,7 @@ export function GreenwalletsPage() {
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id} className="text-[13px]">
                   {u.name}
-                  {!u.has_greenwallet && ' (legacy)'}
+                  {!u.has_greenwallet && ' (legado)'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -262,7 +262,7 @@ export function GreenwalletsPage() {
           <div className="flex-1 text-xs text-warn leading-relaxed">
             <strong>Carteira manual sem custódia greenwallet.</strong> Este usuário
             foi criado antes da migração para mnemônica custodiada (greenwallet).
-            Você pode gerar uma greenwallet nova para ele agora — o histórico em{' '}
+            Você pode gerar uma greenwallet nova para ele agora - o histórico em{' '}
             <span className="mono">rewards</span>, <span className="mono">bottles</span>{' '}
             e <span className="mono">blockchain_txs</span> é preservado.
           </div>
@@ -291,7 +291,7 @@ export function GreenwalletsPage() {
               </div>
               <div className="text-[11px] text-ink-3 mt-0.5">
                 {selectedUser.role === 'owner'
-                  ? 'Owner não precisa transferir tokens — o endereço antigo era da carteira operadora. Você pode concluir agora.'
+                  ? 'Owner não precisa transferir tokens - o endereço antigo era da carteira operadora. Você pode concluir agora.'
                   : 'Transfira os GTs do endereço antigo (Lace) para o novo endereço e depois clique em Concluir.'}
               </div>
             </div>
@@ -313,7 +313,7 @@ export function GreenwalletsPage() {
                 {selectedUser.wallet_address ?? '(nenhum)'}
               </div>
               <div className="mt-1.5 text-xs">
-                Saldo: <strong>{pendingOldBalance ?? '—'} GT</strong>
+                Saldo: <strong>{pendingOldBalance ?? '-'} GT</strong>
               </div>
             </div>
             <div
@@ -325,7 +325,7 @@ export function GreenwalletsPage() {
                 {selectedUser.pending_wallet_address}
               </div>
               <div className="mt-1.5 text-xs">
-                Saldo: <strong>{pendingNewBalance ?? '—'} GT</strong>
+                Saldo: <strong>{pendingNewBalance ?? '-'} GT</strong>
               </div>
             </div>
           </div>
@@ -497,7 +497,7 @@ export function GreenwalletsPage() {
           {seedDialog && (
             <>
               <p className="text-xs text-ink-3 leading-relaxed">
-                Anote estas 24 palavras agora. Elas só serão exibidas nesta janela —
+                Anote estas 24 palavras agora. Elas só serão exibidas nesta janela -
                 depois, para vê-las novamente, será preciso usar o endpoint{' '}
                 <span className="mono">GET /users/:id/greenwallet/seed</span>.
               </p>

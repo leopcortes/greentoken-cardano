@@ -50,7 +50,7 @@ async function processTransaction(tx: txsDb.BlockchainTx): Promise<void> {
  * Para cada garrafa recém-validada (stage='inserted' com UTxO confirmado),
  * dispara automaticamente a tx de compactação individual no smart contract.
  * Submete em paralelo com UTxOs do operador pré-alocados (um por garrafa) para
- * evitar contenção. Falhas individuais não abortam o batch — a próxima iteração
+ * evitar contenção. Falhas individuais não abortam o batch - a próxima iteração
  * do worker tentará novamente as garrafas que ficaram para trás.
  */
 async function autoCompactPending(): Promise<void> {
@@ -59,7 +59,7 @@ async function autoCompactPending(): Promise<void> {
 
   const operatorUtxos = await allocateOperatorUtxos(ready.length, 4_000_000)
   if (operatorUtxos.length === 0) {
-    console.warn(`[worker] Sem UTxO do operador disponível — adiando ${ready.length} auto-compactação(ões) para o próximo ciclo.`)
+    console.warn(`[worker] Sem UTxO do operador disponível - adiando ${ready.length} auto-compactação(ões) para o próximo ciclo.`)
     return
   }
 

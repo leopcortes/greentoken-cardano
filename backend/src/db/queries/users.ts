@@ -10,7 +10,7 @@ export interface User {
   pubkey_hash: string | null
   has_greenwallet: boolean
   // Migracao pendente: greenwallet nova ja gerada mas ainda nao confirmada
-  // como definitiva (usuario precisa transferir GTs do endereco antigo).
+  // como definitiva (usuario precisa transferir GTs do endereço antigo).
   pending_wallet_address: string | null
   has_pending_migration: boolean
   migration_initiated_at: Date | null

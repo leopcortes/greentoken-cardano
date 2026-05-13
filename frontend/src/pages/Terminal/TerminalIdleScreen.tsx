@@ -54,17 +54,22 @@ export function TerminalIdleScreen() {
     if (!open) setSelectedRecyclerId('');
   }, [open]);
 
+  const [scanning, setScanning] = useState(false);
+
   const onSimulateScan = async () => {
     const user = recyclers.find((r) => r.id === selectedRecyclerId);
     if (!user) return;
     setSubmitting(true);
+    setScanning(true);
     try {
+      await new Promise((r) => setTimeout(r, 1500));
       const logged = await loginRecycler(user.wallet_address);
       toast.success(`Bem-vindo(a), ${logged.name}!`);
       setOpen(false);
     } catch (err) {
-      toast.error(humanizeApiError(err, 'Falha ao entrar'), { duration: 8000 });
+      toast.error(humanizeApiError(err, 'Falha ao entrar'), { duration: 5000 });
     } finally {
+      setScanning(false);
       setSubmitting(false);
     }
   };
@@ -89,17 +94,17 @@ export function TerminalIdleScreen() {
           </div>
         </div>
         <div className="flex gap-3">
-          <span className="gt-chip gt-chip--cdn">Cardano · preprod</span>
-          <button
+          <span className="gt-chip gt-chip--cdn px-4">Cardano · preprod</span>
+          <Button
             type="button"
             onClick={() => {
               setOpen(false);
               setOwnerDialogOpen(true);
             }}
-            className="bg-muted hover:bg-muted/50 inline-flex items-center gap-[6px] px-4 py-[6px] rounded-lg border border-line text-ink-2 text-[12px] font-semibold transition-colors"
+            className=" inline-flex items-center text-sm gap-[6px] px-6 py-[4px] rounded-lg border border-linetext-[12px] font-semibold transition-colors"
           >
             Administração
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -110,7 +115,7 @@ export function TerminalIdleScreen() {
             className="text-4xl font-extrabold tracking-tight text-ink mb-3"
             style={{ letterSpacing: '-0.02em' }}
           >
-            Recicle suas garrafas e ganhe <span className="text-gt-700">Greentokens</span>
+            Recicle garrafas PET e ganhe <span className="text-gt-700">Greentokens</span>
           </h1>
           <p className="text-ink-3 text-base mb-10 leading-relaxed">
             Identifique-se com a sua greenwallet para iniciar uma sessão.
@@ -143,9 +148,11 @@ export function TerminalIdleScreen() {
           </DialogHeader>
 
           <div className="flex flex-col items-center gap-2 pt-1">
-            <QrCodeMock size={160} />
+            <QrCodeMock size={160} scanning={scanning} />
             <p className="text-[12px] text-ink-3 text-center">
-              Aponte o app da sua carteira para o QR code acima.
+              {scanning
+                ? 'Lendo QR code...'
+                : 'Aponte o app da sua carteira para o QR code acima.'}
             </p>
           </div>
 
@@ -187,9 +194,9 @@ export function TerminalIdleScreen() {
                 type="button"
                 onClick={onSimulateScan}
                 disabled={submitting || !selectedRecyclerId}
-                className="bg-gt-600 hover:bg-gt-700 text-white"
+                className="bg-gt-600 hover:bg-gt-700 text-white px-6"
               >
-                {submitting ? 'Entrando...' : 'Simular scan'}
+                {scanning ? 'Lendo QR...' : submitting ? 'Entrando...' : 'Entrar'}
               </Button>
             </div>
           </div>

@@ -90,13 +90,13 @@ router.get('/:id/greenwallet', requireSelfOrOwner('id'), async (req: Request, re
   }
 })
 
-// GET /users/:id/greenwallet/balance - saldo on-chain (Blockfrost) por endereco
+// GET /users/:id/greenwallet/balance - saldo on-chain (Blockfrost) por endereço
 router.get('/:id/greenwallet/balance', requireSelfOrOwner('id'), async (req: Request, res: Response) => {
   try {
     const user = await usersDb.findById(req.params.id as string)
     if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' })
     if (!user.wallet_address) {
-      return res.status(404).json({ error: 'Usuario nao possui endereco Cardano' })
+      return res.status(404).json({ error: 'Usuario nao possui endereço Cardano' })
     }
     const { lovelace, assets } = await fetchBalance(user.wallet_address)
     const gtUnit = await greentokenAssetUnit()

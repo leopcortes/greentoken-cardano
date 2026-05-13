@@ -19,7 +19,7 @@ export function validateUUID(id: string): string {
 }
 
 export function validateAddress(addr: string): string {
-  if (!BECH32_ADDR.test(addr)) throw new Error(`Endereco invalido: ${addr}`)
+  if (!BECH32_ADDR.test(addr)) throw new Error(`Endereço invalido: ${addr}`)
   return addr
 }
 
