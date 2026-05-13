@@ -44,4 +44,4 @@ node-ipc/
 .history/
 .claude/
 .DS_Store
-docs/*
+docs/

@@ -172,35 +172,16 @@ CREATE INDEX idx_containers_status     ON containers(status);
 CREATE INDEX idx_route_stops_route     ON route_stops(route_id, status);
 
 -- seed
--- Owner padrão do sistema e caminhão da frota
+-- Apenas o owner do sistema e os recursos físicos (containers, estações, caminhões).
+-- Recicladores são criados pelo owner via dashboard após o setup.
+-- A greenwallet do owner é gerada via dashboard após o primeiro login
+-- (POST /users/:id/greenwallet/migrate ou criação via painel de greenwallets).
 
-INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
+INSERT INTO users (role, name, email)
 VALUES (
   'owner',
-  'Owner Greentoken',
-  'owner@greentoken.io',
-  'addr_test1vzrpfw7aqpsfxdtx2f7t5jjmqwkp09suf0quql3qgw39xfs7qhqx2',
-  '8614bbdd0060933566527cba4a5b03ac17961c4bc1c07e2043a25326'
-)
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
-VALUES (
-  'recycler',
-  'Leo 1',
-  'leo.13.cortes@gmail.com',
-  'addr_test1qq22tnn379fzry3wrsnxdanucmd47vlempk9326fj0txy60pf7akm2qqn2vlurcde97kw0kvwe438uzmha9c3tmfdm9qj3z74t',
-  '14a5ce71f15221922e1c2666f67cc6db5f33f9d86c58ab4993d66269'
-)
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO users (role, name, email, wallet_address, pubkey_hash)
-VALUES (
-  'recycler',
-  'Leo 2',
-  'leo.pereira.cortes@gmail.com',
-  'addr_test1qr35f3ukkfqhua4595870atp5uzanp2f899fj75z8gma7g5225d8dp9lzl8aqdnhdfq7ftcham4e3v3p90gqcchvam8s37vx77',
-  'e344c796b2417e76b42d0fe7f561a705d98549394a997a823a37df22'
+  'Admin Greentoken',
+  'owner@greentoken.io'
 )
 ON CONFLICT (email) DO NOTHING;
 

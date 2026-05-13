@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Eye, EyeOff, QrCode, RefreshCw, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, QrCode, RefreshCw, Server, Shield, Wallet } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   getGreenwalletBalance,
+  getOperatorBalance,
   getUserRewards,
   getUsers,
   initiateGreenwalletMigration,
@@ -24,6 +25,7 @@ import {
   cancelGreenwalletMigration,
   type GreenwalletBalance,
   type MigrationInitiated,
+  type OperatorBalance,
   type Reward,
   type User,
 } from '@/services/api';
@@ -36,6 +38,8 @@ import {
   fmtNumber,
   rewardsToTxRows,
 } from '@/pages/Wallet/walletWidgets';
+import { CopyButton } from '@/components/ui/copy-button';
+import { truncateMiddle } from '@/lib/truncate';
 
 export function GreenwalletsPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -55,6 +59,25 @@ export function GreenwalletsPage() {
   const [refreshingPendingBalance, setRefreshingPendingBalance] = useState(false);
   const [confirmingMigration, setConfirmingMigration] = useState(false);
   const [confirmGuardOpen, setConfirmGuardOpen] = useState(false);
+
+  const [operatorBalance, setOperatorBalance] = useState<OperatorBalance | null>(null);
+  const [loadingOperator, setLoadingOperator] = useState(false);
+  const [operatorError, setOperatorError] = useState<string | null>(null);
+
+  const reloadOperator = useCallback(() => {
+    setLoadingOperator(true);
+    setOperatorError(null);
+    getOperatorBalance()
+      .then((data) => setOperatorBalance(data))
+      .catch((err) => {
+        setOperatorError(err instanceof Error ? err.message : 'Erro ao consultar carteira operadora');
+      })
+      .finally(() => setLoadingOperator(false));
+  }, []);
+
+  useEffect(() => {
+    reloadOperator();
+  }, [reloadOperator]);
 
   useEffect(() => {
     let alive = true;
@@ -197,6 +220,14 @@ export function GreenwalletsPage() {
   const adaValue = balance ? Number(balance.ada) : 0;
   const voucherValue = (totalGreentoken * VOUCHER_RATE).toFixed(2);
   const txRows = useMemo(() => rewardsToTxRows(rewards), [rewards]);
+
+  const LOW_UTXO_THRESHOLD = 3;
+
+  const isOwner = selectedUser?.role === 'owner';
+  const hasWallet = !!selectedUser?.wallet_address;
+  const gridCols = isOwner
+    ? (hasWallet ? (showADA ? '1fr 1fr 1fr' : '1fr 1fr') : '1fr')
+    : (showADA ? '1fr 1fr' : '1fr');
 
   return (
     <div className="space-y-3.5">
@@ -358,11 +389,9 @@ export function GreenwalletsPage() {
         </div>
       )}
 
-      {selectedUser && selectedUser.wallet_address && (
-        <div
-          className="grid gap-3.5"
-          style={{ gridTemplateColumns: showADA ? '1fr 1fr' : '1fr' }}
-        >
+      {selectedUser && (hasWallet || isOwner) && (
+        <div className="grid gap-3.5" style={{ gridTemplateColumns: gridCols }}>
+          {hasWallet && (
           <BalanceCard
             kind="gt"
             value={hideBalance ? '••••' : fmtNumber(totalGreentoken)}
@@ -382,7 +411,8 @@ export function GreenwalletsPage() {
             isLegacy={isLegacy}
             totalGreentoken={totalGreentoken}
           />
-          {showADA && (
+          )}
+          {hasWallet && showADA && (
             <BalanceCard
               kind="ada"
               value={hideBalance ? '••••' : fmtNumber(adaValue, 2)}
@@ -395,10 +425,92 @@ export function GreenwalletsPage() {
               secondaryTip="Em breve"
             />
           )}
+          {/* Card carteira operadora - somente owner */}
+          {isOwner && (
+          <div className="gt-card relative overflow-hidden p-[22px]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="gt-eyebrow">Carteira Operadora</span>
+                <span className="gt-chip gt-chip--ghost">payment.addr</span>
+              </div>
+              <button
+                type="button"
+                onClick={reloadOperator}
+                disabled={loadingOperator}
+                className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
+              >
+                <RefreshCw size={11} className={loadingOperator ? 'animate-spin' : ''} />
+                Atualizar
+              </button>
+            </div>
+
+            {operatorError && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-[#fecaca] text-xs text-err leading-relaxed"
+                style={{ background: 'var(--err-soft)' }}
+              >
+                <AlertTriangle size={13} className="flex-none mt-0.5" />
+                <span>Nó indisponível - {operatorError}</span>
+              </div>
+            )}
+
+            {!operatorError && operatorBalance && (
+              <div className="gap-4 flex flex-col" >
+                <div className='grid' style={{ gridTemplateColumns: '1fr 1fr' }}>
+                  <div>
+                    <div className="gt-eyebrow mb-1">Saldo total</div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="mono font-bold text-2xl text-ink">
+                        {fmtNumber(Number(operatorBalance.ada), 2)}
+                      </span>
+                      <span className="text-sm font-semibold text-cdn">₳</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="gt-eyebrow mb-1">UTxOs disponíveis</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`mono font-bold text-2xl ${
+                        operatorBalance.ada_only_utxo_count < LOW_UTXO_THRESHOLD
+                          ? 'text-warn'
+                          : 'text-ink'
+                      }`}>
+                        {operatorBalance.ada_only_utxo_count}
+                      </span>
+                      <span className="text-[11px] text-ink-4">ADA-only</span>
+                      {operatorBalance.utxo_count > operatorBalance.ada_only_utxo_count && (
+                        <span className="text-[11px] text-ink-4">
+                          · {operatorBalance.utxo_count - operatorBalance.ada_only_utxo_count} com tokens
+                        </span>
+                      )}
+                    </div>
+                    {operatorBalance.ada_only_utxo_count < LOW_UTXO_THRESHOLD && (
+                      <div className="flex items-center gap-1 mt-1 text-[10px] text-warn font-medium">
+                        <AlertTriangle size={10} />
+                        Execute split-utxos.sh
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="gt-eyebrow mb-1">Endereço</div>
+                  <div className="flex items-center gap-1">
+                    <span className="mono text-[11px] text-ink-2">
+                      {truncateMiddle(operatorBalance.address, 32, 8)}
+                    </span>
+                    <CopyButton value={operatorBalance.address} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!operatorError && !operatorBalance && !loadingOperator && (
+              <div className="text-[12px] text-ink-4 italic">Sem dados do nó Cardano.</div>
+            )}
+          </div>
+          )}
         </div>
       )}
 
-      {selectedUser && !selectedUser.wallet_address && (
+      {selectedUser && !selectedUser.wallet_address && !isOwner && (
         <div
           className="gt-card flex gap-2.5 items-start px-4 py-3"
           style={{ background: 'var(--warn-soft)', borderColor: '#fde68a' }}

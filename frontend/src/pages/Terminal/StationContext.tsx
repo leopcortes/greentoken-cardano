@@ -555,19 +555,15 @@ export function StationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setCurrentBottle(b);
-    setCompleted(new Set());
-    setActiveStage(-1);
-    setAiResult('validating');
-    setLidOpen(true);
-    setScanning(true);
-
     // Garrafa inválida (can/glass): reject puramente client-side, sem API.
+    // Não toca no estado de currentBottle/pipeline para não interromper
+    // o acompanhamento de uma garrafa válida que já esteja em processamento.
     if (b.invalid) {
       const material = b.invalid === 'can' ? 'Lata de alumínio' : 'Vidro';
+      setLidOpen(true);
+      setScanning(true);
       window.setTimeout(() => {
         setScanning(false);
-        setAiResult('rejected');
         setReject(true);
         setLidOpen(false);
         toast.error(`A IA do container rejeitou o item ${material}.`, {
@@ -576,13 +572,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
         });
         window.setTimeout(() => {
           setReject(false);
-          setActiveStage(-1);
-          setAiResult(null);
           replaceInventoryBottle(b.id);
         }, REJECT_HOLD_MS);
       }, SCAN_MS);
       return;
     }
+
+    setCurrentBottle(b);
+    setCompleted(new Set());
+    setActiveStage(-1);
+    setAiResult('validating');
+    setLidOpen(true);
+    setScanning(true);
 
     setCurrentBottleApi(null);
     const containerId = currentContainer.id;

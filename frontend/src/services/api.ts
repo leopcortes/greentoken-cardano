@@ -342,4 +342,24 @@ export const getStationBottles = (stationId: string) =>
 export const shredStation = (stationId: string) =>
   request<{ message: string; stationId: string; shredded: number }>(
     `/stations/${stationId}/shred`, { method: 'POST' }
-  );
+  )
+
+// --- Operator ---
+
+export interface OperatorUtxo {
+  txIn: string;
+  lovelace: number;
+  ada_only: boolean;
+}
+
+export interface OperatorBalance {
+  address: string;
+  total_lovelace: number;
+  ada: string;
+  utxo_count: number;
+  ada_only_utxo_count: number;
+  utxos: OperatorUtxo[];
+}
+
+export const getOperatorBalance = () =>
+  request<OperatorBalance>('/operator/balance');
