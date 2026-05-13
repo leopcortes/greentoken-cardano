@@ -391,21 +391,3 @@ O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam p
 ```
 
 **Total de recompensa por garrafa: 50 Greentoken**
-
----
-
-## Próximos Passos
-
-- [x] Frontend web para recicladores e owners
-- [x] Tela Greentoken Station (simulação interativa do container físico, com drag-drop, IA de validação e pipeline on-chain)
-- [x] Implementar lógica de rotas de caminhão (CRUD de caminhões, criação de rotas, coleta de paradas)
-- [x] Estações de tratamento e trituração
-- [x] Bloqueios de fluxo no frontend (evitar etapas fora de ordem)
-- [x] Cooldown de blockchain na criação de garrafas
-- [x] Correção de recompensas em operações batch multi-usuário
-- [x] Lidar com delays de operações na blockchain (validação de UTXOs confirmados + fragmentação de UTXOs)
-- [x] Greenwallet: geração de wallets BIP-39 custodiadas no servidor com criptografia AES-256-GCM
-- [ ] Adicionar autenticação na API
-- [ ] Testes automatizados para o backend
-- [ ] Migrar de `child_process` para `cardano-serialization-lib`
-- [ ] Deploy em produção (mainnet)
