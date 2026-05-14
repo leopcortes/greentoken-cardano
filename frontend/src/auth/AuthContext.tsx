@@ -26,6 +26,8 @@ interface AuthState {
   ready: boolean;
   login: (email: string, password: string) => Promise<User>;
   signup: (payload: SignupPayload) => Promise<SignupResponse>;
+  // Completa o login com token+user já obtidos (usado após MnemonicGate no signup).
+  loginWithToken: (token: string, user: User) => void;
   logout: () => void;
 }
 
@@ -83,14 +85,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(async (payload: SignupPayload) => {
     const resp = await apiSignup(payload);
-    setAuthToken(resp.token);
-    setUser(resp.user);
+    // Quando o backend retorna mnemonic, o usuário ainda não confirmou que anotou
+    // as 24 palavras. Não fazemos login até ele confirmar (MnemonicGate).
+    if (!resp.mnemonic) {
+      setAuthToken(resp.token);
+      setUser(resp.user);
+    }
     return resp;
   }, []);
 
+  const loginWithToken = useCallback((token: string, user: User) => {
+    setAuthToken(token);
+    setUser(user);
+  }, []);
+
   const value = useMemo<AuthState>(
-    () => ({ user, ready, login, signup, logout }),
-    [user, ready, login, signup, logout],
+    () => ({ user, ready, login, signup, loginWithToken, logout }),
+    [user, ready, login, signup, loginWithToken, logout],
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useStation } from './StationContext';
 import { LogOut, Wallet } from 'lucide-react';
@@ -18,6 +18,14 @@ export function TopBar() {
     }
     logout();
     navigate('/', { replace: true });
+  };
+
+  const onWallet = () => {
+    if (pipelineBusy) {
+      toast.warning('Aguarde as garrafas em andamento antes de ir para a carteira.', { duration: 6000 });
+      return;
+    }
+    navigate('/wallet');
   };
 
   return (
@@ -40,14 +48,17 @@ export function TopBar() {
           <span className="mono">{bottlesProcessed}</span> hoje
         </span>
         <span className="gt-chip gt-chip--cdn">Cardano · preprod</span>
-        
-        <Link
-          to="/wallet"
-          className="inline-flex items-center gap-[6px] px-3 py-[6px] rounded-lg border border-yellow-300 bg-yellow-100 text-yellow-800 text-[11px] font-semibold no-underline hover:bg-yellow-100 transition-colors"
+
+        <button
+          type="button"
+          onClick={onWallet}
+          disabled={pipelineBusy}
+          className="inline-flex items-center gap-[6px] px-3 py-[6px] rounded-lg border border-yellow-300 bg-yellow-100 text-yellow-800 text-[11px] font-semibold hover:bg-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title={pipelineBusy ? 'Aguarde as garrafas finalizarem' : 'Ver carteira completa'}
         >
           <Wallet size={12} />
           Minha carteira
-        </Link>
+        </button>
 
         <button
             type="button"

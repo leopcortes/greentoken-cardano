@@ -52,7 +52,7 @@ function StatusArrow({ active }: { active: boolean }) {
   return (
     <div className="flex-1 flex items-center justify-center h-[30px] relative">
       <div
-        className="w-full h-[2px] transition-colors duration-[320ms]"
+        className="w-full h-[2px] transition-colors [transition-duration:320ms]"
         style={{ background: color }}
       />
       <svg width="10" height="10" viewBox="0 0 10 10" className="absolute -right-[2px]">

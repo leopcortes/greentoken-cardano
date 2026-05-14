@@ -156,7 +156,7 @@ export function BottlesPage() {
       if (selected) {
         const remainingLiters = selected.capacity_liters - selected.current_volume_liters;
         const volumeLiters = Number(formVolume) / 1000;
-        if (volumeLiters > remainingLiters) {
+        if (volumeLiters * 0.5 > remainingLiters) {
           setVolumeError(
             `Container sem espaço suficiente. Disponível: ${(remainingLiters * 1000).toFixed(1)}ml (${remainingLiters.toFixed(1)}L).`
           );

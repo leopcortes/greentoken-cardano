@@ -37,8 +37,8 @@ router.post('/', async (req: Request, res: Response) => {
     const truck = await trucksDb.create({ license_plate })
     res.status(201).json(truck)
   } catch (err: any) {
-    if (err.constraint === 'trucks_license_plate_key') {
-      return res.status(409).json({ error: 'Placa ja cadastrada' })
+    if (err?.code === '23505' || err?.constraint === 'trucks_license_plate_key') {
+      return res.status(409).json({ error: 'Já existe um caminhão com esta placa' })
     }
     res.status(500).json({ error: err.message })
   }

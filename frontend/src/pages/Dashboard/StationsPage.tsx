@@ -17,6 +17,7 @@ import {
   type Station, type Bottle,
 } from '@/services/api';
 import { STAGE_LABELS, t } from '@/lib/labels';
+import { humanizeApiError } from '@/lib/errors';
 
 const STAGE_COLORS: Record<string, string> = {
   atstation: 'bg-purple-100 text-purple-800',
@@ -140,7 +141,7 @@ export function StationsPage() {
       const bottles = await getStationBottles(selectedStation.id);
       setStationBottles(bottles);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao triturar garrafas', { id: toastId, duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao triturar garrafas'), { id: toastId, duration: 10000 });
     } finally {
       setShredding(false);
     }
@@ -344,8 +345,10 @@ export function StationsPage() {
                           <TableCell className='flex gap-2'>
                             <div className="text-sm font-medium">{bottle.bottle_id_text}</div>
                             <div className="flex items-center gap-0.5">
-                              <span className="font-mono text-xs text-muted-foreground">({truncateMiddle(bottle.id, 12, 4)})</span>
-                              <CopyButton className="ml-1" value={bottle.id} />
+                              <span className="font-mono text-xs text-muted-foreground">
+                                ({truncateMiddle(bottle.utxo_hash ?? bottle.id, 12, 4)})
+                              </span>
+                              <CopyButton className="ml-1" value={bottle.utxo_hash ?? bottle.id} />
                             </div>
                           </TableCell>
                           <TableCell className="text-sm whitespace-nowrap">

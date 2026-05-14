@@ -4,24 +4,18 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/auth/AuthContext';
-import type { SignupMode } from '@/services/api';
-
-function humanizeApiError(err: unknown, fallback: string): string {
-  const raw = err instanceof Error ? err.message : String(err ?? fallback);
-  const match = raw.match(/^\d+:\s*(.+)$/s);
-  const body = match ? match[1] : raw;
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === 'object' && typeof parsed.error === 'string') {
-      return parsed.error;
-    }
-  } catch {}
-  return body || fallback;
-}
+import type { SignupMode, User } from '@/services/api';
+import { humanizeApiError } from '@/lib/errors';
 
 interface MnemonicGateProps {
   words: string[];
   onConfirm: () => void;
+}
+
+interface PendingSession {
+  mnemonic: string[];
+  token: string;
+  user: User;
 }
 
 // Tela bloqueante apos signup com greenwallet nova: forca o usuário a anotar
@@ -37,8 +31,8 @@ function MnemonicGate({ words, onConfirm }: MnemonicGateProps) {
           Salve suas 24 palavras
         </h1>
         <p className="text-ink-3 text-sm mb-6">
-          Esta é a sua greenwallet. Anote as palavras na ordem exata em local seguro —
-          sem elas você não consegue recuperar a conta se mudar de PC ou banco de dados.
+          Esta é a sua greenwallet. Anote as palavras na ordem exata em local seguro -
+          sem elas você não consegue recuperar sua conta.
           <strong className="text-ink"> Não compartilhamos isto outra vez.</strong>
         </p>
 
@@ -82,7 +76,7 @@ function MnemonicGate({ words, onConfirm }: MnemonicGateProps) {
 }
 
 export function SignupPage() {
-  const { signup } = useAuth();
+  const { signup, loginWithToken } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -93,7 +87,9 @@ export function SignupPage() {
   const [mnemonicInput, setMnemonicInput] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [pendingMnemonic, setPendingMnemonic] = useState<string[] | null>(null);
+  // Guarda mnemonic + credenciais enquanto o usuário ainda não confirmou as 24
+  // palavras. Só fazemos login de fato no onConfirm.
+  const [pendingSession, setPendingSession] = useState<PendingSession | null>(null);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -127,7 +123,9 @@ export function SignupPage() {
         ...(mode === 'external_wallet' ? { wallet_address: walletAddress.trim() } : {}),
       });
       if (resp.mnemonic) {
-        setPendingMnemonic(resp.mnemonic);
+        // Não logamos ainda: guardamos as credenciais e exibimos o MnemonicGate.
+        // O login só acontece após o usuário confirmar que anotou as 24 palavras.
+        setPendingSession({ mnemonic: resp.mnemonic, token: resp.token, user: resp.user });
         return;
       }
       toast.success(`Conta criada. Bem-vindo(a), ${resp.user.name}!`);
@@ -139,13 +137,14 @@ export function SignupPage() {
     }
   };
 
-  if (pendingMnemonic) {
+  if (pendingSession) {
     return (
       <MnemonicGate
-        words={pendingMnemonic}
+        words={pendingSession.mnemonic}
         onConfirm={() => {
-          setPendingMnemonic(null);
-          toast.success('Conta criada com sucesso!');
+          loginWithToken(pendingSession.token, pendingSession.user);
+          setPendingSession(null);
+          toast.success(`Conta criada. Bem-vindo(a), ${pendingSession.user.name}!`);
           navigate('/', { replace: true });
         }}
       />

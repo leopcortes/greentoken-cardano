@@ -102,11 +102,11 @@ router.post('/signup', async (req: Request, res: Response) => {
       encryptedSeed = encryptMnemonic(words)
     } else {
       if (typeof wallet_address !== 'string' || !isAddrLike(wallet_address)) {
-        return res.status(400).json({ error: 'wallet_address inválido (esperado addr_test1... ou addr1...)' })
+        return res.status(400).json({ error: 'Endereço da wallet inválido (esperado addr_test1... ou addr1...)' })
       }
       const inUse = await usersDb.findByWallet(wallet_address)
       if (inUse) {
-        return res.status(409).json({ error: 'wallet_address já cadastrado para outro usuário' })
+        return res.status(409).json({ error: 'Endereço da wallet já cadastrado para outro usuário' })
       }
       walletAddr = wallet_address
     }
@@ -117,7 +117,7 @@ router.post('/signup', async (req: Request, res: Response) => {
         return res.status(409).json({
           error:
             'Esta greenwallet já esta vinculada a outro usuário neste banco. ' +
-            'Faça /auth/login com o email correspondente.',
+            'Faça login com o email correspondente.',
         })
       }
     }

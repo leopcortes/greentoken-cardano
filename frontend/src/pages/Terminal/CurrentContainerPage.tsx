@@ -26,14 +26,12 @@ export function CurrentContainerPage() {
     inFlight,
   } = useStation();
 
-  // Trocar de container durante o pipeline orfaniza confirmações que chegam
-  // depois. Bloqueia enquanto houver garrafas em voo ou validação em andamento.
   const pipelineBusy = activeStage >= 0 || inFlight.length > 0;
   const collectReady = fillPct >= 90;
   const readyForCollection = currentContainer?.status === 'ready_for_collection';
-  const handleCollect = () => {
-    toast.warning('Essa função ainda não está disponível!');
-  };
+  // const handleCollect = () => {
+  //   toast.warning('Essa função ainda não está disponível!');
+  // };
 
   const status = currentContainer?.status ?? 'maintenance';
   const statusClass = STATUS_CHIP[status] ?? STATUS_CHIP.maintenance;
@@ -170,7 +168,7 @@ export function CurrentContainerPage() {
             </div>
           )}
         </div>
-        {collectReady && (
+        {/* {collectReady && (
           <Button
             onClick={handleCollect}
             size="sm"
@@ -179,7 +177,7 @@ export function CurrentContainerPage() {
           >
             Coletar
           </Button>
-        )}
+        )} */}
       </div>
     </div>
   );

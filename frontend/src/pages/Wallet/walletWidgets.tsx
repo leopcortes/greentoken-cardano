@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -68,6 +68,16 @@ interface QrModalProps {
 
 export function QrModal({ open, user, onClose }: QrModalProps) {
   const cells = useMemo(() => fauxQrCells(user?.wallet_address ?? ''), [user?.wallet_address]);
+
+  const copyAddress = useCallback(() => {
+    if (!user?.wallet_address) return;
+    navigator.clipboard.writeText(user.wallet_address).then(() => {
+      toast.success('Endereço copiado!', { duration: 3000 });
+    }).catch(() => {
+      toast.error('Não foi possível copiar o endereço.', { duration: 4000 });
+    });
+  }, [user?.wallet_address]);
+
   if (!user || !user.wallet_address) return null;
 
   return (
@@ -78,18 +88,29 @@ export function QrModal({ open, user, onClose }: QrModalProps) {
           <h3 className="text-lg font-bold mt-1">{user.name}</h3>
         </div>
 
-        <div className="flex justify-center mb-4">
-          <div
-            className="grid bg-white p-3 rounded-lg border border-line"
-            style={{ gridTemplateColumns: 'repeat(21, 1fr)', width: 200, height: 200 }}
+        <div className="flex flex-col items-center mb-4 gap-2">
+          <button
+            type="button"
+            onClick={copyAddress}
+            title="Clique para copiar o endereço"
+            className="group relative cursor-pointer focus:outline-none"
           >
-            {cells.map((on, i) => (
-              <div
-                key={i}
-                style={{ aspectRatio: '1/1', background: on ? 'var(--ink)' : 'transparent' }}
-              />
-            ))}
-          </div>
+            <div
+              className="grid bg-white p-3 rounded-lg border border-line group-hover:border-gt-400 transition-colors"
+              style={{ gridTemplateColumns: 'repeat(21, 1fr)', width: 200, height: 200 }}
+            >
+              {cells.map((on, i) => (
+                <div
+                  key={i}
+                  style={{ aspectRatio: '1/1', background: on ? 'var(--ink)' : 'transparent' }}
+                />
+              ))}
+            </div>
+            <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/80 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-gt-700">
+              Copiar endereço
+            </span>
+          </button>
+          <span className="text-[11px] text-ink-4">Clique no QR para copiar</span>
         </div>
 
         <div className="bg-bg-elev border border-line rounded-md p-3 mb-3">

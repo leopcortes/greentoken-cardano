@@ -56,7 +56,7 @@ async function bootstrapOwner() {
     return
   }
   if (existing.role !== 'owner') {
-    console.warn(`[bootstrap] Usuário com email ${email} existe mas não e owner — ignorando`)
+    console.warn(`[bootstrap] Usuário com email ${email} existe mas não e owner - ignorando`)
     return
   }
   if (!existing.password_hash) {

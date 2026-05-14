@@ -23,6 +23,7 @@ Sistema de **rastreamento de reciclagem de garrafas na blockchain Cardano** usan
 | **Off-chain** | Bash + cardano-cli | Scripts para operar diretamente na blockchain |
 | **Backend** | Node.js + TypeScript + PostgreSQL | API REST que integra blockchain e banco de dados |
 | **Frontend** | React + TypeScript + Vite + TailwindCSS | Dashboard web para gerenciar o sistema |
+| **Auth** | JWT (HMAC) + bcrypt | Login/signup com roles `owner` e `recycler` |
 | **Greenwallet** | Mesh SDK + Blockfrost + AES-256-GCM | Geração e custódia de wallets Cardano no servidor |
 
 ### Fluxo de integração com a blockchain
@@ -34,6 +35,7 @@ Cada operação no sistema segue o mesmo padrão assíncrono: o backend submete 
 | Componente | Arquivo | Responsabilidade |
 |---|---|---|
 | **Frontend** | `frontend/src/pages/*.tsx` | Chama a API e faz polling até confirmar o UTxO |
+| **Auth** | `backend/src/auth/` + `routes/auth.routes.ts` | JWT (HMAC), bcrypt, middleware de role |
 | **API REST** | `backend/src/routes/*.routes.ts` | Recebe a requisição e aciona o serviço |
 | **Bottle Service** | `backend/src/services/bottle.service.ts` | Orquestra blockchain + banco de dados |
 | **Cardano Service** | `backend/src/services/cardano.service.ts` | Wrapper do `cardano-cli` - única camada que toca a blockchain |
@@ -124,24 +126,28 @@ greentoken-cardano/
 |   |-- users/                        # Endereços e chaves dos usuários
 |-- frontend/
 |   |-- src/
+|   |   |-- auth/                     # AuthContext.tsx, RequireRole.tsx
 |   |   |-- components/               # Componentes compartilhados (Bottle SVG, ui/ shadcn)
 |   |   |-- hooks/                    # Custom hooks (useSortable)
 |   |   |-- lib/                      # Utilitários (helpers, labels, types, sounds)
 |   |   |-- pages/
-|   |   |   |-- GreenStation/         # Tela do container (rota /): TopBar, CurrentBottle, CurrentContainer, CurrentWallet, Inventory, PipelinePanel + StationContext (drag/drop, polling, pipeline)
-|   |   |   |-- Dashboard/            # Painel admin (rota /dashboard): Bottles, Users, Containers, Routes, Stations, Greenwallets, UserCreatedSeed
+|   |   |   |-- Auth/                 # LoginPage, SignupPage (new_greenwallet / restore / external_wallet)
+|   |   |   |-- Terminal/             # Tela do container (rota /): TopBar, CurrentBottle, CurrentContainer, CurrentWallet, Inventory, PipelinePanel + StationContext
+|   |   |   |-- Wallet/               # WalletPage (saldo + recompensas do reciclador)
+|   |   |   |-- Dashboard/            # Painel admin (rota /dashboard): Bottles, Users, Containers, Routes, Stations, Greenwallets
 |   |   |-- services/api.ts           # Cliente HTTP tipado para a API REST
-|   |   |-- App.tsx                   # Roteamento (Station em /, Dashboard em /dashboard)
+|   |   |-- App.tsx                   # Roteamento: / Terminal, /login, /signup, /dashboard, /wallet
 |   |   |-- index.css                 # Tema verde Tailwind + variáveis CSS
 |   |-- vite.config.ts                # Vite + proxy /api -> backend:3000
 |   |-- tailwind.config.js            # Tailwind v3 + tokens shadcn
 |   |-- package.json
 |-- backend/
 |   |-- db/schema.sql                 # Schema PostgreSQL (DDL + seed)
-|   |-- db/migrations/                # Migrações incrementais (001: volume precision, 002: greenwallet, 003: rewards unique)
+|   |-- db/migrations/                # 001: volume | 002: greenwallet | 003: rewards unique | 004: pending greenwallet | 005: password_hash
 |   |-- src/
+|   |   |-- auth/                     # jwt.ts, middleware.ts, passwords.ts (bcrypt)
 |   |   |-- services/                 # Lógica de negócio (bottle, container, cardano)
-|   |   |-- routes/                   # Endpoints Express
+|   |   |-- routes/                   # Endpoints Express (auth, bottles, users, containers, trucks, stations, routes)
 |   |   |-- db/queries/               # Queries PostgreSQL tipadas
 |   |   |-- workers/                  # Confirmation worker (polling blockchain)
 |   |   |-- greenwallet/              # Geração de wallet BIP-39 (crypto.ts + mesh.ts)
@@ -187,11 +193,18 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `GET` | `/health` | Health check |
+| **Autenticação** | | |
+| `POST` | `/auth/login` | Login email + senha (qualquer role). Retorna `{ token, user }` |
+| `POST` | `/auth/signup` | Cadastro público (`role=recycler`). `mode`: `new_greenwallet`, `restore_greenwallet` (24 palavras) ou `external_wallet` |
+| `GET` | `/auth/me` | Reidrata sessão a partir do JWT |
 | **Usuários** | | |
 | `GET` | `/users` | Lista usuários (`?role=recycler\|owner`) |
 | `GET` | `/users/:id` | Detalhe de um usuário |
-| `POST` | `/users` | Cria usuário |
+| `POST` | `/users` | Cria usuário (uso interno / owner) |
 | `GET` | `/users/:id/rewards` | Recompensas + total Greentoken |
+| `POST` | `/users/:id/greenwallet` | Gera wallet BIP-39 + cifra mnemônica |
+| `GET` | `/users/:id/greenwallet` | Endereço, pubkey_hash e saldo Blockfrost |
+| `GET` | `/users/:id/greenwallet/seed` | Mnemônica decifrada (operação sensível) |
 | **Garrafas** | | |
 | `GET` | `/bottles` | Lista garrafas (`?user_id=`, `?stage=`, `?container_id=`, `?route_id=`, `?station_id=`) |
 | `GET` | `/bottles/next-number` | Próximo número disponível para garrafa |
@@ -223,7 +236,7 @@ O backend roda na porta 3000 e expõe os seguintes endpoints:
 
 Schema com 8 tabelas (`backend/db/schema.sql`):
 
-- **`users`** - recicladores e donos de pontos de coleta; colunas `mnemonic_ciphertext/iv/auth_tag/encryption_key_version` armazenam a wallet BIP-39 criptografada (greenwallet)
+- **`users`** - recicladores e donos de pontos de coleta; `password_hash` (bcrypt) para login; colunas `mnemonic_ciphertext/iv/auth_tag/encryption_key_version` armazenam a wallet BIP-39 criptografada (greenwallet; NULL para wallets externas)
 - **`containers`** - pontos físicos de coleta (volume, status: active/ready_for_collection/in_route/maintenance)
 - **`trucks`** - frota de caminhões (status: available/on_route/maintenance)
 - **`routes`** / **`route_stops`** - rotas de coleta com paradas em containers
@@ -247,7 +260,7 @@ psql -U postgres -d greentoken_db -f backend/db/schema.sql
 
 # 2. Gerar chaves do operador (wallet owner) e compilar os contratos
 export CARDANO_NODE_SOCKET_PATH=~/cardano/preprod/node.socket
-export CARDANO_NODE_MAGIC=1
+export CARDANO_NODE_MAGIC=2
 scripts/setup-wallet.sh
 scripts/build-contracts.sh
 
@@ -262,18 +275,19 @@ scripts/split-utxos.sh 100
 # 4. Iniciar nó e backend
 cardano-start
 cd backend && cp .env.example .env
-# Preencha BLOCKFROST_API_KEY (https://blockfrost.io) e WALLET_ENCRYPTION_KEY (openssl rand -base64 32)
+# Preencha: BLOCKFROST_API_KEY, WALLET_ENCRYPTION_KEY, AUTH_JWT_SECRET, OWNER_EMAIL, OWNER_PASSWORD
+# WALLET_ENCRYPTION_KEY: openssl rand -base64 32
+# AUTH_JWT_SECRET:        openssl rand -base64 48
 npm install && npm run dev
+# O bootstrap cria/atualiza o owner automaticamente ao iniciar
 
 # 5. Iniciar o frontend
 cd frontend && npm install && npm run dev
 # Acesse http://localhost:5173
 
-# 6. Criar usuários no frontend:
-#    - Owner: usar endereço de assets/wallet/payment.addr
-#      scripts/get-pubkey-hash.sh $(cat assets/wallet/payment.addr)
-#    - Recycler: criar wallet via Lace (extensão Chrome, rede Preprod)
-#      scripts/get-pubkey-hash.sh <ENDERECO_LACE>
+# 6. Acessar o sistema
+#    - Owner:    faça login em /login com OWNER_EMAIL / OWNER_PASSWORD
+#    - Recycler: cadastre-se em /signup (escolha new_greenwallet, restore ou external_wallet)
 #    Recyclers NÃO precisam de tADA (transações financiadas pelo owner)
 ```
 
@@ -283,10 +297,22 @@ cd frontend && npm install && npm run dev
 
 Aplicação web construída com **React + TypeScript + Vite + TailwindCSS v3 + shadcn/ui** (componentes Radix UI). Possui duas telas principais:
 
-| Rota | Tela | Função |
+| Rota | Tela | Acesso |
 |------|------|--------|
-| `/` | **Greentoken Station** | Simulador interativo do container físico (reciclador) |
-| `/dashboard` | **Dashboard** | Painel CRUD para operadores (owners) |
+| `/login` | **Login** | Qualquer usuário |
+| `/signup` | **Cadastro** | Público (cria conta `recycler`) |
+| `/` | **Greentoken Station** | `recycler` autenticado |
+| `/wallet` | **Minha Carteira** | `recycler` autenticado |
+| `/dashboard` | **Dashboard** | `owner` autenticado |
+
+### Login / Cadastro
+
+Recicladores se cadastram via `/signup` escolhendo um de três modos de wallet:
+- **`new_greenwallet`** - gera 24 palavras BIP-39 no servidor (custódia cifrada AES-256-GCM)
+- **`restore_greenwallet`** - restaura uma greenwallet existente a partir das 24 palavras (portabilidade entre máquinas/bancos)
+- **`external_wallet`** - informa endereço de wallet externa (ex: Lace, rede Preprod)
+
+O owner é provisionado automaticamente no boot a partir das variáveis `OWNER_EMAIL`/`OWNER_PASSWORD`.
 
 ### Greentoken Station
 
@@ -306,6 +332,10 @@ Simula a tela frontal do container Greentoken, visando o **reciclador**. Layout 
 **Topbar:** chip de "garrafas processadas hoje" calculado a partir das recompensas do dia (stage=`inserted`), chip "Confirmando Xs" durante o polling on-chain, e link para o dashboard.
 
 Cada operação chama os mesmos endpoints REST do dashboard (`POST /bottles`, `GET /bottles/:id`, `GET /users/:id/rewards`, `GET /containers`).
+
+### Wallet
+
+Tela exclusiva do reciclador com saldo Greentoken on-chain (via Blockfrost), histórico de recompensas por estágio, endereço Cardano e últimas transações.
 
 ### Dashboard
 
@@ -347,9 +377,13 @@ A wallet do owner é criada via script e é responsável por **financiar todas a
 
 As wallets dos recicladores servem para **identificar o usuário** e receber recompensas Greentoken. As transações são financiadas pela wallet do owner, portanto **recicladores não precisam de tADA**.
 
-1. **Recomendado:** Crie a wallet pela extensão [Lace Wallet](https://www.lace.io/) no Chrome (rede Preprod)
-2. **Alternativa:** Crie via `cardano-cli` (ver [SETUP-LOCAL.md](SETUP-LOCAL.md#75-criar-wallets-dos-recicladores-recyclers))
-3. Com o endereço da wallet e o pubkey hash (`scripts/get-pubkey-hash.sh <ENDERECO>`), crie o usuário **recycler** no frontend
+O reciclador escolhe o modo de wallet ao se cadastrar em `/signup`:
+
+| Modo | Descrição |
+|------|-----------|
+| `new_greenwallet` | Gera 24 palavras BIP-39 no servidor; mnemônica cifrada com AES-256-GCM |
+| `restore_greenwallet` | Usa 24 palavras já existentes; re-deriva exatamente o mesmo endereço em qualquer banco |
+| `external_wallet` | Informa endereço externo (ex: Lace Wallet, extensão Chrome, rede Preprod) |
 
 > Consulte o [SETUP-LOCAL.md](SETUP-LOCAL.md#7-configurar-wallets-e-chaves) para instruções detalhadas passo a passo.
 
@@ -360,11 +394,11 @@ As wallets dos recicladores servem para **identificar o usuário** e receber rec
 O sistema segue um fluxo sequencial com bloqueios para evitar que etapas sejam puladas:
 
 ```
-1. Configurar Wallets (owner via script + recycler via Lace/script)
+1. Configurar Wallets (owner via script + recycler via /signup)
          |
-2. Criar Usuários no frontend (owner e recycler, com wallet address + pubkey hash)
+2. Login no sistema (owner: /login | recycler: /signup → /login)
          |
-3. Criar Container (associado a um proprietário)
+3. Criar Container no Dashboard (associado ao owner)
          |
 4. Inserir Garrafa -> associada a um container e um usuário
    |  (garrafa: inserted | recompensa: 10 Greentoken)

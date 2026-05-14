@@ -13,6 +13,7 @@ import { SortableHeader } from '@/components/ui/sortable-header';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSortable } from '@/hooks/useSortable';
 import { getUsers, createUser, getUserRewards, getGreenwalletBalance, type User, type Reward } from '@/services/api';
+import { humanizeApiError } from '@/lib/errors';
 import { UserCreatedSeedDialog } from './UserCreatedSeedPage';
 import { truncateMiddle } from '@/lib/truncate';
 import { ROLE_LABELS, STAGE_LABELS, t } from '@/lib/labels';
@@ -120,7 +121,7 @@ export function UsersPage() {
       setOnchainBalance(balance ? balance.greentoken : null);
       setRewardsUser(user);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar recompensas', { duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao carregar recompensas'), { duration: 10000 });
     }
   };
 
@@ -134,7 +135,7 @@ export function UsersPage() {
         <h2 className="text-lg font-semibold">Usuários</h2>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className='bg-gray-100 text-gray-800' onClick={fetchUsers}>Atualizar</Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {/* <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">+ Novo Usuário</Button>
             </DialogTrigger>
@@ -208,7 +209,7 @@ export function UsersPage() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
+          </Dialog> */}
         </div>
       </div>
 
@@ -319,10 +320,14 @@ export function UsersPage() {
                     <TableRow key={r.id}>
                       <TableCell className='flex gap-2'>
                         <div className="text-sm font-medium leading-tight">{r.bottle_name}</div>
-                        <div className="flex items-center gap-0.5">
-                          <span className="font-mono text-muted-foreground text-xs">({truncateMiddle(r.bottle_id, 10, 4)})</span>
-                          <CopyButton value={r.bottle_id} />
-                        </div>
+                        {r.tx_hash && (
+                          <div className="flex items-center gap-0.5">
+                            <span className="font-mono text-muted-foreground text-xs">
+                              ({truncateMiddle(r.tx_hash, 10, 4)})
+                            </span>
+                            <CopyButton value={r.tx_hash} />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">{t(STAGE_LABELS, r.stage)}</TableCell>
                       <TableCell className="font-semibold text-green-600">+{r.greentoken_amount}</TableCell>

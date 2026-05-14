@@ -20,6 +20,7 @@ import {
   getStations,
   type Route, type RouteStop, type Truck, type Container, type Station,
 } from '@/services/api';
+import { humanizeApiError } from '@/lib/errors';
 import { ROUTE_STATUS_LABELS, TRUCK_STATUS_LABELS, STOP_STATUS_LABELS, t } from '@/lib/labels';
 
 const ROUTE_STATUS_COLORS: Record<string, string> = {
@@ -86,7 +87,7 @@ export function RoutesPage() {
       setAvailableTrucks(trucksData.filter(t => t.status === 'available'));
       // Containers podem ser coletados a qualquer momento, independente de volume.
       // Excluem-se apenas os já em rota ou em manutenção.
-      setReadyContainers(containersData.filter(c => c.status === 'active' || c.status === 'ready_for_collection'));
+      setReadyContainers(containersData.filter(c => (c.status === 'active' || c.status === 'ready_for_collection') && c.current_volume_liters > 0));
       setStationOptions(stationsData);
       setSelectedTruck('');
       setSelectedContainers([]);
@@ -117,7 +118,7 @@ export function RoutesPage() {
       setRouteDialogOpen(false);
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar rota', { duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao criar rota'), { duration: 10000 });
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +143,7 @@ export function RoutesPage() {
     setPlateError('');
     fetchData();
   } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Erro ao criar caminhão', { duration: 10000 });
+    toast.error(humanizeApiError(err, 'Erro ao criar caminhão'), { duration: 10000 });
   } finally {
     setSubmitting(false);
   }
@@ -168,7 +169,7 @@ export function RoutesPage() {
       }
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao coletar parada', { id: toastId, duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao coletar parada'), { id: toastId, duration: 10000 });
     }
   };
 
@@ -191,7 +192,7 @@ export function RoutesPage() {
       setDetailRoute(updated);
       fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao entregar garrafas', { id: toastId, duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao entregar garrafas'), { id: toastId, duration: 10000 });
     } finally {
       setDelivering(false);
     }

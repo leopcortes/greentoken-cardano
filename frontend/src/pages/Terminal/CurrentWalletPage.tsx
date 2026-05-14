@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { LogOut, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,14 @@ export function CurrentWalletPage() {
     navigate('/', { replace: true });
   };
 
+  const onWallet = () => {
+    if (pipelineBusy) {
+      toast.warning('Aguarde as garrafas em andamento antes de ir para a carteira.', { duration: 6000 });
+      return;
+    }
+    navigate('/wallet');
+  };
+
   return (
     <div ref={walletRef} className="gt-card p-[18px] flex-1 flex min-h-0 flex-col">
       <div className="flex items-start mb-[14px] justify-between gap-3">
@@ -39,14 +47,16 @@ export function CurrentWalletPage() {
           </div>
         </div>
         <div className="flex flex-col gap-1.5 flex-none">
-          <Link
-            to="/wallet"
-            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-[10px] font-semibold no-underline hover:bg-yellow-100 transition-colors"
-            title="Ver carteira completa"
+          <button
+            type="button"
+            onClick={onWallet}
+            disabled={pipelineBusy}
+            className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-[10px] font-semibold hover:bg-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title={pipelineBusy ? 'Aguarde as garrafas finalizarem' : 'Ver carteira completa'}
           >
             <Wallet size={11} />
             Carteira
-          </Link>
+          </button>
           <button
             type="button"
             onClick={onLogout}

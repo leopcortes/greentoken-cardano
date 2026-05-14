@@ -26,6 +26,7 @@ import {
   rewardToTxLog,
   volumeMlOf,
 } from '@/lib/helpers';
+import { humanizeApiError } from '@/lib/errors';
 import { Bottle } from '@/components/Bottle';
 import { playBottleDrop, playCoinReward } from '@/lib/sounds';
 import {
@@ -138,22 +139,6 @@ const CONFETTI_MS = 800;
 const POLL_MS = 2_000;
 const MAX_WAIT_MS = 5 * 60_000;
 
-// Erros do backend chegam no formato `"<status>: <body>"` (api.ts), e o body
-// frequentemente é `{"error":"..."}`. Extrai a mensagem legível para o toast.
-function humanizeApiError(err: unknown, fallback: string): string {
-  const raw = err instanceof Error ? err.message : String(err ?? fallback);
-  const match = raw.match(/^\d+:\s*(.+)$/s);
-  const body = match ? match[1] : raw;
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === 'object' && typeof parsed.error === 'string') {
-      return parsed.error;
-    }
-  } catch {
-    // body não é JSON - usa como está
-  }
-  return body || fallback;
-}
 
 export function StationProvider({ children }: { children: ReactNode }) {
   const [inventory, setInventory] = useState<InventoryBottleData[]>(() => buildInventory(7, 12));
@@ -556,17 +541,23 @@ export function StationProvider({ children }: { children: ReactNode }) {
     }
 
     // Garrafa inválida (can/glass): reject puramente client-side, sem API.
-    // Não toca no estado de currentBottle/pipeline para não interromper
-    // o acompanhamento de uma garrafa válida que já esteja em processamento.
+    // Atualiza currentBottle para exibir o item rejeitado no card - mesmo que
+    // uma garrafa válida esteja sendo processada em background (inFlight).
     if (b.invalid) {
       const material = b.invalid === 'can' ? 'Lata de alumínio' : 'Vidro';
+      setCurrentBottle(b);
+      setCurrentBottleApi(null);
+      setCompleted(new Set());
+      setActiveStage(-1);
+      setAiResult('validating');
       setLidOpen(true);
       setScanning(true);
       window.setTimeout(() => {
         setScanning(false);
         setReject(true);
         setLidOpen(false);
-        toast.error(`A IA do container rejeitou o item ${material}.`, {
+        setAiResult('rejected');
+        toast.error(`A IA do container rejeitou: ${material}.`, {
           description: 'Apenas garrafas PET/HDPE são aceitas.',
           duration: 6000,
         });
@@ -575,6 +566,18 @@ export function StationProvider({ children }: { children: ReactNode }) {
           replaceInventoryBottle(b.id);
         }, REJECT_HOLD_MS);
       }, SCAN_MS);
+      return;
+    }
+
+    // Verifica capacidade antes de iniciar o scan da IA.
+    // Usa a mesma fórmula do backend: volume compactado = volumeMl * 0.5.
+    const projectedLiters =
+      currentContainer.current_volume_liters + (volumeMlOf(b.size) / 1000) * 0.5;
+    if (projectedLiters > currentContainer.capacity_liters) {
+      toast.error('Container sem capacidade para esta garrafa.', {
+        description: `Ocupado: ${currentContainer.current_volume_liters.toFixed(2)}L / ${currentContainer.capacity_liters}L`,
+        duration: 8000,
+      });
       return;
     }
 

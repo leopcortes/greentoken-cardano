@@ -14,6 +14,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSortable } from '@/hooks/useSortable';
 import { truncateMiddle } from '@/lib/truncate';
 import { getContainers, createContainer, getUsers, type Container, type User } from '@/services/api';
+import { humanizeApiError } from '@/lib/errors';
 import { CONTAINER_STATUS_LABELS, t } from '@/lib/labels';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -127,7 +128,7 @@ export function ContainersPage() {
       setDialogOpen(false);
       fetchContainers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar container', { duration: 10000 });
+      toast.error(humanizeApiError(err, 'Erro ao criar container'), { duration: 10000 });
     } finally {
       setSubmitting(false);
     }

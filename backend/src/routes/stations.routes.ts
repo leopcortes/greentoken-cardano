@@ -65,7 +65,11 @@ router.post('/:id/shred', async (req: Request, res: Response) => {
       ...result,
     })
   } catch (err: any) {
-    if (err.message.includes('Nenhuma') || err.message.includes('não encontrada')) {
+    if (
+      err.message.includes('Nenhuma') ||
+      err.message.includes('não encontrada') ||
+      err.message.includes('aguardando confirmação')
+    ) {
       return res.status(400).json({ error: err.message })
     }
     res.status(500).json({ error: err.message })
