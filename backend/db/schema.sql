@@ -190,7 +190,7 @@ ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
-  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  (SELECT id FROM users WHERE email = 'admin@greentoken.io'),
   'Ponto de Coleta FT UnB',
   'Asa Norte, Brasília',
   -15.762412,
@@ -202,7 +202,7 @@ ON CONFLICT (owner_id, name) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
-  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  (SELECT id FROM users WHERE email = 'admin@greentoken.io'),
   'Ponto de Coleta BCE UnB',
   'Asa Norte, Brasília',
   -15.761322,
@@ -214,7 +214,7 @@ ON CONFLICT (owner_id, name) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
-  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  (SELECT id FROM users WHERE email = 'admin@greentoken.io'),
   'Ponto de Coleta Pão de Açucar',
   'Lago Norte, Brasília',
   -15.72296,
@@ -226,7 +226,7 @@ ON CONFLICT (owner_id, name) DO NOTHING;
 
 INSERT INTO containers (owner_id, name, location_name, latitude, longitude, capacity_liters, status)
 VALUES (
-  (SELECT id FROM users WHERE email = 'owner@greentoken.io'),
+  (SELECT id FROM users WHERE email = 'admin@greentoken.io'),
   'Ponto de Coleta BigBox',
   'Lago Norte, Brasília',
   -15.72074,

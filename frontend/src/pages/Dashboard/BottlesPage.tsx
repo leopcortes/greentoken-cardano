@@ -12,10 +12,10 @@ import { ErrorAlert } from '@/components/ui/error-alert';
 import { SortableHeader } from '@/components/ui/sortable-header';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSortable } from '@/hooks/useSortable';
-import { SquareArrowRightEnter, Package, Truck, Factory, Recycle, Loader2 } from 'lucide-react';
+import { SquareArrowRightEnter, Package, Truck, Factory, Recycle, Loader2, Trash2 } from 'lucide-react';
 import {
   getBottles, getUsers, getContainers, getNextBottleNumber,
-  createBottle,
+  createBottle, deleteBottle,
   type Bottle, type User, type Container,
 } from '@/services/api';
 import { truncateMiddle } from '@/lib/truncate';
@@ -193,6 +193,23 @@ export function BottlesPage() {
     }
   };
 
+  const handleDelete = async (bottle: Bottle) => {
+    const ok = window.confirm(
+      `Excluir a garrafa "${bottle.bottle_id_text}"?\n\n` +
+      `Esta ação remove a garrafa, suas transações e recompensas do banco. ` +
+      `Use para destravar garrafas presas em estados. ` +
+      `Não afeta o estado on-chain.`,
+    );
+    if (!ok) return;
+    try {
+      await deleteBottle(bottle.id);
+      toast.success(`Garrafa "${bottle.bottle_id_text}" excluida.`, { duration: 4000 });
+      fetchBottles();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir garrafa', { duration: 10000 });
+    }
+  };
+
   const SH = (label: string, key: keyof Bottle) => (
     <SortableHeader label={label} sortKey={key as string} currentKey={sortKey as string | null} direction={sortDir} onSort={() => toggleSort(key)} />
   );
@@ -317,6 +334,7 @@ export function BottlesPage() {
                 <TableHead>{SH('Estágio', 'current_stage')}</TableHead>
                 <TableHead>UTXO</TableHead>
                 <TableHead>{SH('Inserida em', 'inserted_at')}</TableHead>
+                <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -417,12 +435,23 @@ export function BottlesPage() {
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(bottle.inserted_at).toLocaleDateString('pt-BR')}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Excluir garrafa do banco"
+                        onClick={() => handleDelete(bottle)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {!loading && bottles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Nenhuma garrafa encontrada
                   </TableCell>
                 </TableRow>

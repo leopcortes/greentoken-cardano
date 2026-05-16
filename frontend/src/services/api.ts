@@ -245,6 +245,19 @@ export const getGreenwallet = (id: string) =>
 export const getGreenwalletBalance = (id: string) =>
   request<GreenwalletBalance>(`/users/${id}/greenwallet/balance`);
 
+export interface SendAdaResponse {
+  tx_hash: string;
+  from_address: string;
+  to_address: string;
+  lovelace: string;
+}
+
+export const sendAda = (id: string, toAddress: string, lovelace: string) =>
+  request<SendAdaResponse>(
+    `/users/${id}/greenwallet/send-ada`,
+    { method: 'POST', body: JSON.stringify({ to_address: toAddress, lovelace }) },
+  );
+
 export interface MigrationInitiated {
   user: User;
   new_address: string;
@@ -252,10 +265,10 @@ export interface MigrationInitiated {
   mnemonic: string[];
 }
 
-export const initiateGreenwalletMigration = (id: string) =>
+export const initiateGreenwalletMigration = (id: string, mnemonic?: string[]) =>
   request<MigrationInitiated>(
     `/users/${id}/greenwallet/migrate`,
-    { method: 'POST' },
+    { method: 'POST', body: mnemonic ? JSON.stringify({ mnemonic }) : undefined },
   );
 
 export const confirmGreenwalletMigration = (id: string) =>
@@ -297,6 +310,9 @@ export const createBottle = (data: { user_id?: string; container_id: string; vol
 
 export const getNextBottleNumber = () =>
   request<{ next_number: number; next_name: string }>('/bottles/next-number');
+
+export const deleteBottle = (id: string) =>
+  request<{ ok: true; bottle_id_text: string }>(`/bottles/${id}`, { method: 'DELETE' });
 
 // --- Container actions ---
 

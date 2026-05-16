@@ -217,6 +217,29 @@ export async function clearUtxo(id: string): Promise<void> {
   await pool.query('UPDATE bottles SET utxo_hash = NULL, utxo_index = NULL WHERE id = $1', [id])
 }
 
+// Soma o volume *projetado pos-compactacao* (volume_ml * 0.5 / 1000) das garrafas
+// ainda em estagio 'inserted' deste container. Sao garrafas que ja foram
+// validadas pela IA mas ainda nao tiveram a tx de compactacao confirmada (e
+// portanto current_volume_liters do container ainda nao foi incrementado por
+// elas). Necessario para projetar o volume final sem subestimar.
+export async function pendingInsertedLiters(containerId: string): Promise<number> {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(volume_ml), 0)::float AS total_ml
+     FROM bottles
+     WHERE container_id = $1 AND current_stage = 'inserted'`,
+    [containerId],
+  )
+  const totalMl = parseFloat(rows[0]?.total_ml ?? '0') || 0
+  return (totalMl * 0.5) / 1000
+}
+
+export async function deleteById(id: string): Promise<void> {
+  // Remove dependencias antes da garrafa (FKs ON DELETE RESTRICT).
+  await pool.query('DELETE FROM rewards WHERE bottle_id = $1', [id])
+  await pool.query('DELETE FROM blockchain_txs WHERE bottle_id = $1', [id])
+  await pool.query('DELETE FROM bottles WHERE id = $1', [id])
+}
+
 export async function updateStage(id: string, stage: string): Promise<void> {
   const col = `${stage}_at`
   const allowed = ['inserted_at', 'compacted_at', 'collected_at', 'atstation_at', 'shredded_at']

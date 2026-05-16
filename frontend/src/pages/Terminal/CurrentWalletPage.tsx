@@ -93,7 +93,7 @@ export function CurrentWalletPage() {
           style={{ boxShadow: '0 2px 6px rgba(22,163,74,0.3)' }}
           onClick={() => toast.warning('Essa função ainda não está disponível!')}
         >
-          Resgatar
+          Resgatar ₲
         </Button>
       </div>
 

@@ -119,6 +119,23 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   }
 })
 
+// DELETE /bottles/:id - remove uma garrafa (owner only).
+// Util para limpar garrafas presas em 'inserted' sem compactacao apos timeout,
+// que bloqueariam coletas. Remove tambem blockchain_txs e rewards relacionadas
+// (FKs sao ON DELETE RESTRICT). A garrafa pode permanecer on-chain - este e' um
+// cleanup do banco off-chain.
+router.delete('/:id', requireOwner, async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const bottle = await bottlesDb.findById(id)
+    if (!bottle) return res.status(404).json({ error: 'Garrafa não encontrada' })
+    await bottlesDb.deleteById(id)
+    res.json({ ok: true, bottle_id_text: bottle.bottle_id_text })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /bottles/route/:routeId - lista garrafas de uma rota (admin)
 router.get('/route/:routeId', requireOwner, async (req: Request, res: Response) => {
   try {

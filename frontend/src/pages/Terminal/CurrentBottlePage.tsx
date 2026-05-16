@@ -17,8 +17,9 @@ function StatusNode({ label, status }: { label: string; status: NodeStatus }) {
   return (
     <div className="flex flex-col items-center gap-[6px] flex-none min-w-[60px]">
       <div
-        className="w-[30px] h-[30px] rounded-full flex items-center justify-center relative border-[1.5px] transition-all duration-[280ms]"
+        className="w-[30px] h-[30px] rounded-full flex items-center justify-center relative border-[1.5px] transition-all"
         style={{
+          transitionDuration: '280ms',
           background: s.bg,
           borderColor: s.bd,
           boxShadow: status === 'active' ? '0 0 0 4px rgba(34,197,94,0.15)' : 'none',

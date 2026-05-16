@@ -115,8 +115,22 @@ async function poll(): Promise<void> {
 
 /**
  * Inicia o worker de confirmacao com polling periodico.
+ *
+ * Sem o guard `isRunning`, dois ciclos podem se sobrepor (o poll faz varios
+ * cardano-cli, que sao lentos). Quando isso acontece, ambos veem a mesma
+ * garrafa em findReadyForAutoCompact e tentam consumir o mesmo UTxO da
+ * garrafa, sendo que o segundo falha com "tx input not present in the UTxO".
  */
 export function startConfirmationWorker(): NodeJS.Timeout {
   console.log(`[worker] Iniciando polling a cada ${config.CONFIRMATION_POLL_MS}ms`)
-  return setInterval(poll, config.CONFIRMATION_POLL_MS)
+  let isRunning = false
+  return setInterval(async () => {
+    if (isRunning) return
+    isRunning = true
+    try {
+      await poll()
+    } finally {
+      isRunning = false
+    }
+  }, config.CONFIRMATION_POLL_MS)
 }

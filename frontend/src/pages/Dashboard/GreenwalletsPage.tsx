@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Eye, EyeOff, QrCode, RefreshCw, Shield, Wallet } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, QrCode, RefreshCw, RotateCcw, Shield, Wallet } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -33,6 +33,7 @@ import {
   BalanceCard,
   IdentityStrip,
   QrModal,
+  SendAdaDialog,
   TxTable,
   VOUCHER_RATE,
   fmtNumber,
@@ -40,8 +41,10 @@ import {
 } from '@/pages/Wallet/walletWidgets';
 import { CopyButton } from '@/components/ui/copy-button';
 import { truncateMiddle } from '@/lib/truncate';
+import { useAuth } from '@/auth/AuthContext';
 
 export function GreenwalletsPage() {
+  const { user: authUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<GreenwalletBalance | null>(null);
@@ -51,6 +54,7 @@ export function GreenwalletsPage() {
   const [hideBalance, setHideBalance] = useState(false);
   const [showADA, setShowADA] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const [seedDialog, setSeedDialog] = useState<MigrationInitiated | null>(null);
   const [seedAcknowledged, setSeedAcknowledged] = useState(false);
   const [migratingUserId, setMigratingUserId] = useState<string | null>(null);
@@ -59,6 +63,10 @@ export function GreenwalletsPage() {
   const [refreshingPendingBalance, setRefreshingPendingBalance] = useState(false);
   const [confirmingMigration, setConfirmingMigration] = useState(false);
   const [confirmGuardOpen, setConfirmGuardOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [restoreWords, setRestoreWords] = useState<string[]>(Array(24).fill(''));
+  const [restoring, setRestoring] = useState(false);
+  const restoreInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const [operatorBalance, setOperatorBalance] = useState<OperatorBalance | null>(null);
   const [loadingOperator, setLoadingOperator] = useState(false);
@@ -124,6 +132,30 @@ export function GreenwalletsPage() {
     }
   }, [selectedUser]);
 
+  const openRestoreDialog = useCallback(() => {
+    setRestoreWords(Array(24).fill(''));
+    setRestoreDialogOpen(true);
+  }, []);
+
+  const handleRestoreWord = useCallback((index: number, value: string) => {
+    // suporta colar a frase inteira no primeiro campo
+    const trimmed = value.trim();
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 24) {
+      setRestoreWords(parts.map((w) => w.toLowerCase()));
+      restoreInputRefs.current[23]?.focus();
+      return;
+    }
+    setRestoreWords((prev) => {
+      const next = [...prev];
+      next[index] = value.toLowerCase();
+      return next;
+    });
+    if (value.endsWith(' ') && index < 23) {
+      restoreInputRefs.current[index + 1]?.focus();
+    }
+  }, []);
+
   const reloadWalletData = useCallback((userId: string) => {
     setLoadingBalance(true);
     Promise.all([
@@ -136,6 +168,31 @@ export function GreenwalletsPage() {
       })
       .finally(() => setLoadingBalance(false));
   }, []);
+
+  const handleRestoreSubmit = useCallback(async () => {
+    if (!selectedUser) return;
+    const words = restoreWords.map((w) => w.trim()).filter(Boolean);
+    if (words.length !== 24) {
+      toast.error('Preencha todas as 24 palavras', { duration: 6000 });
+      return;
+    }
+    setRestoring(true);
+    try {
+      const initiated = await initiateGreenwalletMigration(selectedUser.id, words);
+      await confirmGreenwalletMigration(selectedUser.id);
+      setRestoreDialogOpen(false);
+      toast.success(`Greenwallet restaurada: ${initiated.new_address.slice(0, 24)}…`);
+      const fresh = await getUsers();
+      setUsers(fresh);
+      reloadWalletData(selectedUser.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao restaurar greenwallet', {
+        duration: 10000,
+      });
+    } finally {
+      setRestoring(false);
+    }
+  }, [selectedUser, restoreWords, reloadWalletData]);
 
   const refreshPendingBalances = useCallback(async () => {
     if (!selectedUser?.has_pending_migration) return;
@@ -224,6 +281,9 @@ export function GreenwalletsPage() {
 
   const isOwner = selectedUser?.role === 'owner';
   const hasWallet = !!selectedUser?.wallet_address;
+  // Admin so pode enviar ADA da sua propria wallet - nunca da carteira de
+  // outro usuario, mesmo logado como owner.
+  const canSendFromSelected = authUser != null && selectedUser != null && authUser.id === selectedUser.id;
   const gridCols = isOwner
     ? (hasWallet ? (showADA ? '1fr 1fr 1fr' : '1fr 1fr') : '1fr')
     : (showADA ? '1fr 1fr' : '1fr');
@@ -257,7 +317,20 @@ export function GreenwalletsPage() {
             onClick={() => setShowADA((v) => !v)}
             className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
           >
+            {showADA ? <EyeOff size={13} /> : <Eye size={13} />}
             {showADA ? 'Ocultar ADA' : 'Mostrar ADA'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedUserId) reloadWalletData(selectedUserId);
+              reloadOperator();
+            }}
+            disabled={(loadingBalance && !!selectedUserId) || loadingOperator}
+            className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          >
+            <RefreshCw size={13} className={(loadingBalance || loadingOperator) ? 'animate-spin' : ''} />
+            Atualizar
           </button>
           <Select
             value={selectedUserId ?? undefined}
@@ -290,25 +363,49 @@ export function GreenwalletsPage() {
         >
           <Shield size={16} className="text-warn flex-none mt-0.5" />
           <div className="flex-1 text-xs text-warn leading-relaxed">
-            <strong>Carteira manual sem custódia greenwallet.</strong> Este usuário
-            foi criado antes da migração para mnemônica custodiada (greenwallet).
-            Você pode gerar uma greenwallet nova para ele agora - o histórico em{' '}
-            <span className="mono">rewards</span>, <span className="mono">bottles</span>{' '}
-            e <span className="mono">blockchain_txs</span> é preservado.
+            {isOwner ? (
+              <>
+                <strong>Sem greenwallet associada.</strong> Gere uma nova carteira ou
+                recupere uma existente usando suas 24 palavras. O endereço derivado
+                será usado para receber recompensas e assinar operações.
+              </>
+            ) : (
+              <>
+                <strong>Carteira manual sem custódia greenwallet.</strong> Este usuário
+                foi criado antes da migração para mnemônica custodiada (greenwallet).
+                Você pode gerar uma greenwallet nova para ele agora - o histórico em{' '}
+                <span className="mono">rewards</span>, <span className="mono">bottles</span>{' '}
+                e <span className="mono">blockchain_txs</span> é preservado.
+              </>
+            )}
           </div>
-          <Button
-            type="button"
-            onClick={handleStartMigration}
-            disabled={migratingUserId === selectedUser.id}
-            className="bg-gt-600 hover:bg-gt-700 text-white text-xs h-8 flex-none"
-          >
-            <Wallet size={13} className="mr-1.5" />
-            {migratingUserId === selectedUser.id
-              ? 'Gerando...'
-              : selectedUser.role === 'owner'
-                ? 'Gerar greenwallet'
-                : 'Migrar para greenwallet'}
-          </Button>
+          <div className="flex gap-2 flex-none">
+            {isOwner && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openRestoreDialog}
+                disabled={migratingUserId === selectedUser.id}
+                className="text-xs h-8 border-amber-400 text-amber-800 hover:bg-amber-100"
+              >
+                <RotateCcw size={13} className="mr-1.5" />
+                Recuperar
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleStartMigration}
+              disabled={migratingUserId === selectedUser.id}
+              className="bg-gt-600 hover:bg-gt-700 text-white text-xs h-8"
+            >
+              <Wallet size={13} className="mr-1.5" />
+              {migratingUserId === selectedUser.id
+                ? 'Gerando...'
+                : isOwner
+                  ? 'Gerar nova'
+                  : 'Migrar para greenwallet'}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -420,27 +517,25 @@ export function GreenwalletsPage() {
               onPrimary={() => setQrOpen(true)}
               primaryLabel="Receber"
               primaryIcon={<QrCode size={13} />}
-              secondaryDisabled
-              secondaryTip="Em breve"
+              secondaryDisabled={!canSendFromSelected || isLegacy || adaValue < 1}
+              secondaryTip={
+                !canSendFromSelected
+                  ? 'Apenas o titular pode enviar ADA desta wallet'
+                  : isLegacy
+                    ? 'Indisponível para wallets externas'
+                    : adaValue < 1
+                      ? 'Saldo mínimo de 1 ADA para enviar'
+                      : undefined
+              }
+              onSecondary={() => setSendOpen(true)}
             />
           )}
           {/* Card carteira operadora - somente owner */}
           {isOwner && (
           <div className="gt-card relative overflow-hidden p-[22px]">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="gt-eyebrow">Carteira Operadora</span>
-                <span className="gt-chip gt-chip--ghost">payment.addr</span>
-              </div>
-              <button
-                type="button"
-                onClick={reloadOperator}
-                disabled={loadingOperator}
-                className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
-              >
-                <RefreshCw size={11} className={loadingOperator ? 'animate-spin' : ''} />
-                Atualizar
-              </button>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="gt-eyebrow">Carteira Operadora</span>
+              <span className="gt-chip gt-chip--ghost">payment.addr</span>
             </div>
 
             {operatorError && (
@@ -459,7 +554,7 @@ export function GreenwalletsPage() {
                     <div className="gt-eyebrow mb-1">Saldo total</div>
                     <div className="flex items-baseline gap-1">
                       <span className="mono font-bold text-2xl text-ink">
-                        {fmtNumber(Number(operatorBalance.ada), 2)}
+                        {hideBalance ? '••••' : fmtNumber(Number(operatorBalance.ada), 2)}
                       </span>
                       <span className="text-sm font-semibold text-cdn">₳</span>
                     </div>
@@ -525,22 +620,11 @@ export function GreenwalletsPage() {
 
       {selectedUser && selectedUser.wallet_address && (
         <div className="gt-card">
-          <div className="flex justify-between items-center px-[18px] py-3.5 border-b border-line">
-            <div>
-              <h3 className="text-sm font-semibold leading-tight">Transações on-chain</h3>
-              <p className="text-[11px] text-ink-3 mt-0.5">
-                Recompensas mintadas por estágio · {txRows.length === 0 ? 'Nenhuma transação' : (txRows.length === 1 ? '1 transação' : `${txRows.length} transações`)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => selectedUserId && reloadWalletData(selectedUserId)}
-              disabled={loadingBalance}
-              className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-            >
-              <RefreshCw size={12} className={loadingBalance ? 'animate-spin' : ''} />
-              Atualizar
-            </button>
+          <div className="px-[18px] py-3.5 border-b border-line">
+            <h3 className="text-sm font-semibold leading-tight">Transações on-chain</h3>
+            <p className="text-[11px] text-ink-3 mt-0.5">
+              Recompensas mintadas por estágio · {txRows.length === 0 ? 'Nenhuma transação' : (txRows.length === 1 ? '1 transação' : `${txRows.length} transações`)}
+            </p>
           </div>
           <TxTable rows={txRows} hideADA={!showADA} />
         </div>
@@ -560,6 +644,18 @@ export function GreenwalletsPage() {
       )}
 
       <QrModal open={qrOpen} user={selectedUser} onClose={() => setQrOpen(false)} />
+      <SendAdaDialog
+        open={sendOpen}
+        userId={canSendFromSelected ? selectedUserId : null}
+        fromAddress={selectedUser?.wallet_address ?? null}
+        maxLovelace={balance ? BigInt(balance.lovelace) : 0n}
+        onClose={() => setSendOpen(false)}
+        onSuccess={() => {
+          if (selectedUserId) {
+            setTimeout(() => reloadWalletData(selectedUserId), 8000);
+          }
+        }}
+      />
 
       <Dialog open={confirmGuardOpen} onOpenChange={setConfirmGuardOpen}>
         <DialogContent className="max-w-sm">
@@ -669,6 +765,55 @@ export function GreenwalletsPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={restoreDialogOpen} onOpenChange={(open) => { if (!open) setRestoreDialogOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Recuperar greenwallet com 24 palavras</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-ink-3 leading-relaxed">
+            Digite ou cole sua frase mnemônica BIP-39. Cole a frase completa no
+            primeiro campo para preencher todos automaticamente.
+          </p>
+          <div className="grid grid-cols-3 gap-2 my-3">
+            {restoreWords.map((word, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <span className="text-[10px] text-ink-4 mono w-5 text-right flex-none">{i + 1}.</span>
+                <input
+                  ref={(el) => { restoreInputRefs.current[i] = el; }}
+                  type="text"
+                  value={word}
+                  onChange={(e) => handleRestoreWord(i, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && i < 23) restoreInputRefs.current[i + 1]?.focus();
+                  }}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="flex-1 min-w-0 border border-line rounded px-1.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-gt-600"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRestoreDialogOpen(false)}
+              disabled={restoring}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRestoreSubmit}
+              disabled={restoring || restoreWords.some((w) => !w.trim())}
+              className="bg-gt-600 hover:bg-gt-700 text-white"
+            >
+              {restoring ? 'Validando...' : 'Restaurar carteira'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

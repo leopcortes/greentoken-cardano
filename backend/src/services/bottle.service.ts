@@ -12,6 +12,22 @@ import { validateUUID } from '../validate'
 const COMPACTION_REDUCTION = 0.5
 const COMPACTED_RATIO = 1 - COMPACTION_REDUCTION
 
+// Mutex global para a fase critica do create(): consulta volume + pendentes,
+// seleciona proximo numero e insere a linha no DB. Sem isso, duas chamadas
+// concorrentes podem (a) gerar o mesmo bottle_id_text e (b) ambas passarem na
+// checagem de capacidade pois nenhuma ainda enxerga a garrafa em voo da outra.
+// O trecho lento (blockchain) corre fora do lock - o pre-insert ja reserva o
+// numero e ja conta na contagem de "inserted" para a proxima chamada.
+let createLock: Promise<void> = Promise.resolve()
+async function acquireCreateLock(): Promise<() => void> {
+  let release!: () => void
+  const next = new Promise<void>((r) => { release = r })
+  const prev = createLock
+  createLock = next
+  await prev
+  return release
+}
+
 /**
  * Cria uma nova garrafa: gera nome automatico, verifica capacidade do container,
  * submete tx de mint e registra no banco.
@@ -27,50 +43,71 @@ export async function create(params: {
 
   const user = usersDb.requireWallet(await usersDb.findById(userId), userId)
 
-  const container = await containersDb.findById(containerId)
-  if (!container) throw new Error(`Container não encontrado: ${containerId}`)
+  // Secao critica: capacidade + reserva de numero + insert atomicamente.
+  // A checagem inclui pending (inserted ainda nao compactadas) para evitar que
+  // varias garrafas concorrentes passem cada uma na propria checagem mas o
+  // somatorio extrapole a capacidade do container.
+  const release = await acquireCreateLock()
+  let bottle: bottlesDb.Bottle
+  let bottleId: string
+  let bottleHex: string
+  try {
+    const container = await containersDb.findById(containerId)
+    if (!container) throw new Error(`Container não encontrado: ${containerId}`)
 
-  // Valida contra o volume *após* a compactação (50% do original): o container
-  // só ocupa o volume final quando a tx de compactação confirma; durante a fase
-  // 'inserted' o volume armazenado não muda.
-  const volumeLiters = params.volumeMl / 1000
-  const projectedAfterCompaction =
-    container.current_volume_liters + volumeLiters * COMPACTED_RATIO
-  if (projectedAfterCompaction > container.capacity_liters) {
-    const used = container.current_volume_liters.toFixed(2)
-    const cap = container.capacity_liters.toFixed(2)
-    const maxBottleMl = Math.floor(
-      (container.capacity_liters - container.current_volume_liters) / COMPACTED_RATIO * 1000,
-    )
-    throw new Error(
-      `Container sem capacidade suficiente: ${used}L de ${cap}L ocupados. ` +
-      `Esta garrafa de ${params.volumeMl}ml não cabe nem após compactação ` +
-      `(máximo permitido agora: ${Math.max(0, maxBottleMl)}ml).`,
-    )
+    const pendingLiters = await bottlesDb.pendingInsertedLiters(containerId)
+    const volumeLiters = params.volumeMl / 1000
+    const projectedAfterCompaction =
+      container.current_volume_liters + pendingLiters + volumeLiters * COMPACTED_RATIO
+    if (projectedAfterCompaction > container.capacity_liters) {
+      const used = container.current_volume_liters.toFixed(2)
+      const cap = container.capacity_liters.toFixed(2)
+      const availableLiters = Math.max(
+        0,
+        container.capacity_liters - container.current_volume_liters - pendingLiters,
+      )
+      const maxBottleMl = Math.floor((availableLiters / COMPACTED_RATIO) * 1000)
+      throw new Error(
+        `Container sem capacidade suficiente: ${used}L de ${cap}L ocupados ` +
+        `(+ ${pendingLiters.toFixed(2)}L em garrafas pendentes). ` +
+        `Esta garrafa de ${params.volumeMl}ml não cabe nem após compactação ` +
+        `(máximo permitido agora: ${Math.max(0, maxBottleMl)}ml).`,
+      )
+    }
+
+    // Gera nome automatico: garrafa-XXXX (sob lock, evita colisao)
+    const nextNum = await bottlesDb.nextNumber()
+    bottleId = `garrafa-${String(nextNum).padStart(4, '0')}`
+    bottleHex = Buffer.from(bottleId).toString('hex')
+
+    // Pre-insere a garrafa: ja conta como 'inserted' para a proxima chamada
+    // calcular pendingInsertedLiters corretamente.
+    bottle = await bottlesDb.create({
+      user_id: userId,
+      container_id: containerId,
+      bottle_id_text: bottleId,
+      bottle_id_hex: bottleHex,
+      volume_ml: params.volumeMl,
+    })
+  } finally {
+    release()
   }
 
-  // Gera nome automatico: garrafa-XXXX
-  const nextNum = await bottlesDb.nextNumber()
-  const bottleId = `garrafa-${String(nextNum).padStart(4, '0')}`
-  const bottleHex = Buffer.from(bottleId).toString('hex')
+  // Submete tx na Cardano (fora do lock - parte lenta). Em caso de erro,
+  // remove a garrafa pre-inserida para nao deixar lixo bloqueando capacidade.
+  let txHash: string
+  try {
+    txHash = await cardano.createBottle({
+      bottleId,
+      userAddr: user.wallet_address,
+      userPubkeyHash: user.pubkey_hash,
+    })
+  } catch (err) {
+    await bottlesDb.deleteById(bottle.id).catch(() => {})
+    throw err
+  }
 
-  // 1. Submete tx na Cardano
-  const txHash = await cardano.createBottle({
-    bottleId,
-    userAddr: user.wallet_address,
-    userPubkeyHash: user.pubkey_hash,
-  })
-
-  // 2. Registra a garrafa no banco (utxo ainda não confirmado)
-  const bottle = await bottlesDb.create({
-    user_id: userId,
-    container_id: containerId,
-    bottle_id_text: bottleId,
-    bottle_id_hex: bottleHex,
-    volume_ml: params.volumeMl,
-  })
-
-  // 3. Registra a tx como pending
+  // Registra a tx como pending
   const datumJson = JSON.stringify({
     "constructor": 0,
     "fields": [

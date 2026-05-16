@@ -15,6 +15,7 @@ import {
   BalanceCard,
   IdentityStrip,
   QrModal,
+  SendAdaDialog,
   TxTable,
   VOUCHER_RATE,
   fmtNumber,
@@ -34,6 +35,7 @@ export function WalletPage() {
   const [hideBalance, setHideBalance] = useState(false);
   const [showADA, setShowADA] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   const reload = (id: string) => {
     setLoading(true);
@@ -133,7 +135,17 @@ export function WalletPage() {
               onClick={() => setShowADA((v) => !v)}
               className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
             >
+              {showADA ? <EyeOff size={13} /> : <Eye size={13} />}
               {showADA ? 'Ocultar ADA' : 'Mostrar ADA'}
+            </button>
+            <button
+              type="button"
+              onClick={() => userId && reload(userId)}
+              disabled={loading || !userId}
+              className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              Atualizar
             </button>
           </div>
         </div>
@@ -187,8 +199,15 @@ export function WalletPage() {
                 onPrimary={() => setQrOpen(true)}
                 primaryLabel="Receber"
                 primaryIcon={<QrCode size={13} />}
-                secondaryDisabled
-                secondaryTip="Em breve"
+                secondaryDisabled={isLegacy || adaValue < 1}
+                secondaryTip={
+                  isLegacy
+                    ? 'Indisponível para wallets externas'
+                    : adaValue < 1
+                      ? 'Saldo mínimo de 1 ADA para enviar'
+                      : undefined
+                }
+                onSecondary={() => setSendOpen(true)}
               />
             )}
           </div>
@@ -209,33 +228,34 @@ export function WalletPage() {
 
         {user && user.wallet_address && (
           <div className="gt-card">
-            <div className="flex justify-between items-center px-[18px] py-3.5 border-b border-line">
-              <div>
-                <h3 className="text-sm font-semibold leading-tight">Transações on-chain</h3>
-                <p className="text-[11px] text-ink-3 mt-0.5">
-                  Recompensas mintadas por estágio ·{' '}
-                  {txRows.length === 0
-                    ? 'Nenhuma transação'
-                    : txRows.length === 1
-                      ? '1 transação'
-                      : `${txRows.length} transações`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => userId && reload(userId)}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              >
-                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-                Atualizar
-              </button>
+            <div className="px-[18px] py-3.5 border-b border-line">
+              <h3 className="text-sm font-semibold leading-tight">Transações on-chain</h3>
+              <p className="text-[11px] text-ink-3 mt-0.5">
+                Recompensas mintadas por estágio ·{' '}
+                {txRows.length === 0
+                  ? 'Nenhuma transação'
+                  : txRows.length === 1
+                    ? '1 transação'
+                    : `${txRows.length} transações`}
+              </p>
             </div>
             <TxTable rows={txRows} hideADA={!showADA} />
           </div>
         )}
 
         <QrModal open={qrOpen} user={user} onClose={() => setQrOpen(false)} />
+        <SendAdaDialog
+          open={sendOpen}
+          userId={userId}
+          fromAddress={user?.wallet_address ?? null}
+          maxLovelace={balance ? BigInt(balance.lovelace) : 0n}
+          onClose={() => setSendOpen(false)}
+          onSuccess={() => {
+            if (userId) {
+              setTimeout(() => reload(userId), 8000);
+            }
+          }}
+        />
       </main>
     </div>
   );

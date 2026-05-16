@@ -117,6 +117,10 @@ interface StationState {
 
   inFlight: InFlightBottle[];
 
+  // True enquanto o POST /bottles esta em voo (validacao da IA + criacao
+  // no backend). Usado pelo inventario para bloquear novos picks visualmente.
+  creating: boolean;
+
   onPickStart: (bottle: InventoryBottleData, meta: PickMeta) => void;
 }
 
@@ -188,6 +192,9 @@ export function StationProvider({ children }: { children: ReactNode }) {
   const [bumpKey, setBumpKey] = useState(0);
 
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
+  // Espelha creatingRef como state para a UI re-renderizar quando uma criacao
+  // comeca/termina e o inventario poder ficar visualmente desabilitado.
+  const [creating, setCreating] = useState(false);
 
   const [txLog, setTxLog] = useState<TxLogEntry[]>([]);
 
@@ -295,7 +302,11 @@ export function StationProvider({ children }: { children: ReactNode }) {
     ])
       .then(([rewardsData, balance]) => {
         if (!alive) return;
-        setTokens(balance ? balance.greentoken : rewardsData.total_greentoken);
+        // Blockfrost pode estar atrasado em relacao ao mempool/ledger; o total
+        // do DB ja reflete recompensas confirmadas pelo worker. Usa o maior dos
+        // dois para nao "voltar" o saldo apos o optimistic bump.
+        const blockfrostGt = balance?.greentoken ?? 0;
+        setTokens(Math.max(blockfrostGt, rewardsData.total_greentoken));
         setAda(balance ? balance.ada : null);
         setTxLog(rewardsData.rewards.map(rewardToTxLog));
         setRewards(rewardsData.rewards);
@@ -365,7 +376,10 @@ export function StationProvider({ children }: { children: ReactNode }) {
         getUserRewards(currentUserId),
         getGreenwalletBalance(currentUserId).catch(() => null),
       ]);
-      setTokens(balance ? balance.greentoken : rewardsData.total_greentoken);
+      const blockfrostGt = balance?.greentoken ?? 0;
+      // Nunca regrida o saldo: Blockfrost indexa mais devagar que o mempool, e
+      // o optimistic bump (setTokens(t => t + reward)) ja antecipou o ganho.
+      setTokens((prev) => Math.max(prev, blockfrostGt, rewardsData.total_greentoken));
       setAda(balance ? balance.ada : null);
       setTxLog(rewardsData.rewards.map(rewardToTxLog));
       setRewards(rewardsData.rewards);
@@ -410,7 +424,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         // Erro de rede transiente: mantém, retenta no próximo ciclo (a menos que tenha esgotado).
         if (timedOut) {
           toast.warning(
-            `Confirmação de ${bottle.bottleIdText} demorando demais - verifique em /dashboard/bottles.`,
+            `Confirmação de ${bottle.bottleIdText} demorando demais - verifique com operador`,
             { duration: 12000 },
           );
           replaceInventoryBottle(bottle.inventoryId);
@@ -506,7 +520,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
 
       if (timedOut) {
         toast.warning(
-          `Compactação de ${bottle.bottleIdText} demorando demais - verifique em /dashboard/bottles.`,
+          `Compactação de ${bottle.bottleIdText} demorando demais - verifique com operador`,
           { duration: 12000 },
         );
         replaceInventoryBottle(bottle.inventoryId);
@@ -603,13 +617,14 @@ export function StationProvider({ children }: { children: ReactNode }) {
     };
 
     idle.reset();
+    creatingRef.current = true;
+    setCreating(true);
     createBottle({
       container_id: containerId,
       volume_ml: volumeMlOf(b.size),
     })
       .then(async (result) => {
         await waitScan();
-        setScanning(false);
         setAiResult('accepted');
         setActiveStage(0);
         setCurrentBottleApi(result.bottle);
@@ -618,12 +633,12 @@ export function StationProvider({ children }: { children: ReactNode }) {
           `Garrafa "${result.bottle.bottle_id_text}" validada pela IA e inserida no container.`,
           {
             description: result.tx_hash
-              ? `Aguardando confirmação on-chain - tx: ${result.tx_hash.slice(0, 16)}…`
-              : 'Aguardando confirmação on-chain…',
+            ? `Aguardando confirmação on-chain - tx: ${result.tx_hash.slice(0, 16)}…`
+            : 'Aguardando confirmação on-chain…',
             duration: 8000,
           },
         );
-
+        
         // Enfileira no pipeline: a partir daqui o usuário pode arrastar outra
         // garrafa enquanto esta confirma e compacta em background.
         setInFlight((list) => [
@@ -643,6 +658,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
         // container" do ponto de vista do usuário.
         replaceInventoryBottle(b.id);
         schedulePoll();
+        setScanning(false);
       })
       .catch(async (err) => {
         await waitScan();
@@ -658,14 +674,25 @@ export function StationProvider({ children }: { children: ReactNode }) {
           setAiResult(null);
           replaceInventoryBottle(b.id);
         }, REJECT_HOLD_MS);
+      })
+      .finally(() => {
+        creatingRef.current = false;
+        setCreating(false);
       });
   };
 
   const scanningRef = useRef(false);
   scanningRef.current = scanning;
+  // Bloqueia o pick enquanto uma criacao de garrafa esta em voo no backend:
+  // sem isso, dois drops rapidos disparam dois POST /bottles que podem ler o
+  // mesmo nextNumber e gerar nomes duplicados (alem de gastar UTxO do operador
+  // duas vezes para a mesma capacidade do container). Mantemos um ref + state
+  // espelhados: o ref e' checado sincronamente em onPickStart (sem precisar de
+  // re-render); o state e' consumido pela UI para desabilitar o inventario.
+  const creatingRef = useRef(false);
   const onPickStart = useCallback(
     (b: InventoryBottleData, meta: PickMeta) => {
-      if (scanningRef.current || draggingRef.current) return;
+      if (scanningRef.current || draggingRef.current || creatingRef.current) return;
       document.body.classList.add('gt-dragging');
       setDragging({
         bottle: b,
@@ -757,6 +784,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       currentBottleApi,
       processingStartedAt,
       inFlight,
+      creating,
       onPickStart,
     }),
     [
@@ -767,6 +795,7 @@ export function StationProvider({ children }: { children: ReactNode }) {
       containers, currentUserId, currentContainerId, currentUser, currentContainer,
       processingStartedAt,
       inFlight,
+      creating,
       onPickStart,
     ],
   );

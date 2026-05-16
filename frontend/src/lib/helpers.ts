@@ -19,7 +19,7 @@ const SIZES: BottleSize[] = ['S', 'M', 'L'];
 const TINTS: BottleTint[] = ['clear', 'clear', 'green', 'blue', 'amber', 'clear'];
 const KINDS: BottleKind[] = ['PET', 'PET', 'PET', 'HDPE', 'PET'];
 
-export function buildInventory(seed = 7, count = 20): InventoryBottleData[] {
+export function buildInventory(seed = 7, count = 12): InventoryBottleData[] {
   let s = seed;
   const rand = () => {
     s = (s * 9301 + 49297) % 233280;
@@ -79,11 +79,11 @@ export function truncMid(s: string, head = 8, tail = 6): string {
 }
 
 export function sizeLabelOf(size: BottleSize): string {
-  return size === 'S' ? '300 ml' : size === 'L' ? '2 L' : '600 ml';
+  return size === 'S' ? '600 ml' : size === 'L' ? '2 L' : '1 L';
 }
 
 export function volumeMlOf(size: BottleSize): number {
-  return size === 'S' ? 300 : size === 'L' ? 2000 : 600;
+  return size === 'S' ? 600 : size === 'L' ? 2000 : 1000;
 }
 
 export function tintLabelOf(tint: BottleTint): string {

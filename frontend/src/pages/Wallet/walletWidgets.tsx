@@ -1,19 +1,21 @@
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowDown,
   ArrowUp,
+  CheckCircle2,
   ExternalLink,
   QrCode,
   Send,
   Shield,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { CopyButton } from '@/components/ui/copy-button';
 import { fmtDateTime } from '@/lib/helpers';
 import { STAGE_LABELS, t } from '@/lib/labels';
 import { truncateMiddle } from '@/lib/truncate';
-import type { Reward, User } from '@/services/api';
+import { sendAda as apiSendAda, type Reward, type User } from '@/services/api';
 
 export const VOUCHER_RATE = 0.05;
 // Cada tx de mint envia 2 ADA (2_000_000 lovelace) junto com o token,
@@ -132,6 +134,204 @@ export function QrModal({ open, user, onClose }: QrModalProps) {
   );
 }
 
+interface SendAdaDialogProps {
+  open: boolean;
+  userId: string | null;
+  fromAddress: string | null;
+  maxLovelace: bigint;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function SendAdaDialog({
+  open,
+  userId,
+  fromAddress,
+  maxLovelace,
+  onClose,
+  onSuccess,
+}: SendAdaDialogProps) {
+  const [toAddress, setToAddress] = useState('');
+  const [amount, setAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+
+  const maxAda = Number(maxLovelace) / 1_000_000;
+  const amountNumber = Number(amount);
+  const validAmount = Number.isFinite(amountNumber) && amountNumber >= 1 && amountNumber <= maxAda;
+  const validAddress = /^addr_test1[0-9a-z]+$/.test(toAddress.trim());
+  const sameAddress = fromAddress != null && toAddress.trim() === fromAddress;
+  const canSubmit = validAmount && validAddress && !sameAddress && !submitting && userId != null;
+
+  const reset = () => {
+    setToAddress('');
+    setAmount('');
+    setTxHash(null);
+    setSubmitting(false);
+  };
+
+  const handleClose = () => {
+    if (submitting) return;
+    reset();
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !userId) return;
+    setSubmitting(true);
+    try {
+      const lovelace = BigInt(Math.round(amountNumber * 1_000_000)).toString();
+      const resp = await apiSendAda(userId, toAddress.trim(), lovelace);
+      setTxHash(resp.tx_hash);
+      toast.success('Transação submetida', { duration: 6000 });
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao enviar ADA', { duration: 10000 });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!userId || !fromAddress) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-[480px] p-6">
+        <div className="mb-4 pr-6">
+          <div className="gt-eyebrow">Enviar ADA</div>
+          <h3 className="text-lg font-bold mt-1">
+            {txHash ? 'Transação enviada' : 'Transferir para outra wallet'}
+          </h3>
+        </div>
+
+        {txHash ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5 p-3 rounded-md border border-gt-200 bg-gt-50">
+              <CheckCircle2 size={18} className="text-gt-700 flex-none mt-0.5" />
+              <div className="text-xs text-gt-800 leading-relaxed">
+                <strong>Tx submetida com sucesso.</strong> A confirmação on-chain
+                pode levar alguns segundos. O saldo será atualizado automaticamente.
+              </div>
+            </div>
+            <div className="bg-bg-elev border border-line rounded-md p-3">
+              <div className="gt-eyebrow mb-1.5">Hash da transação</div>
+              <div className="flex items-center gap-1.5">
+                <span className="mono text-[11px] text-ink-2 break-all flex-1 leading-relaxed">
+                  {txHash}
+                </span>
+                <CopyButton value={txHash} direction="bottom" />
+              </div>
+            </div>
+            <a
+              href={`https://preprod.cardanoscan.io/transaction/${txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gt-700 hover:text-gt-800"
+            >
+              <ExternalLink size={12} />
+              Ver no Cardanoscan
+            </a>
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="bg-gt-600 hover:bg-gt-700 text-white px-4 py-2 rounded-md text-[13px] font-semibold transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3.5">
+            <div>
+              <label className="gt-eyebrow block mb-1.5">Endereço de destino</label>
+              <Input
+                value={toAddress}
+                onChange={(e) => setToAddress(e.target.value)}
+                placeholder="addr_test1..."
+                spellCheck={false}
+                autoComplete="off"
+                className="mono text-[12px]"
+              />
+              {toAddress && !validAddress && (
+                <div className="text-[11px] text-err mt-1">
+                  Endereço inválido (deve começar com addr_test1).
+                </div>
+              )}
+              {sameAddress && (
+                <div className="text-[11px] text-err mt-1">
+                  O destino é igual ao seu próprio endereço.
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex justify-between items-end mb-1.5">
+                <label className="gt-eyebrow">Quantidade (ADA)</label>
+                <button
+                  type="button"
+                  onClick={() => setAmount(maxAda.toFixed(6))}
+                  className="text-[11px] text-gt-700 hover:text-gt-800 font-semibold"
+                >
+                  Máx: {maxAda.toFixed(2)}
+                </button>
+              </div>
+              <Input
+                type="number"
+                min={1}
+                max={maxAda}
+                step={0.000001}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="mono"
+              />
+              {amount && !validAmount && (
+                <div className="text-[11px] text-err mt-1">
+                  {amountNumber < 1
+                    ? 'Mínimo: 1 ADA.'
+                    : `Saldo insuficiente (disponível: ${maxAda.toFixed(2)} ADA).`}
+                </div>
+              )}
+              <div className="text-[11px] text-ink-3 mt-1">
+                A taxa de rede (~0.17 ADA) será deduzida do saldo restante.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-ink-3 pt-1">
+              <span className="gt-chip gt-chip--cdn whitespace-nowrap flex-shrink-0">
+                Cardano · preprod
+              </span>
+              <span>Apenas endereços preprod são aceitos.</span>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={submitting}
+                className="bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 border border-line px-4 py-2 rounded-md text-[13px] font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="inline-flex items-center gap-1.5 bg-gt-600 hover:bg-gt-700 disabled:bg-line disabled:text-ink-4 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-[13px] font-semibold transition-colors"
+                style={{ boxShadow: '0 2px 6px rgba(22,163,74,.3)' }}
+              >
+                <Send size={13} />
+                {submitting ? 'Enviando...' : 'Enviar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface BalanceCardProps {
   kind: 'gt' | 'ada';
   value: string;
@@ -244,7 +444,7 @@ export function BalanceCard({
         <button
           type="button"
           disabled={isLegacy || totalGreentoken === 0}
-          onClick={() => toast.warning('Resgate ainda não disponivel.')}
+          onClick={() => toast.warning('Essa função ainda não está disponível!')}
           className="inline-flex items-center gap-1.5 self-start mt-3.5 bg-gt-600 hover:bg-gt-700 disabled:bg-line disabled:text-ink-4 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-md text-[13px] font-semibold transition-colors"
           style={{ boxShadow: '0 2px 6px rgba(22,163,74,.3)' }}
         >

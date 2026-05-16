@@ -2,6 +2,7 @@ import {
   generateMnemonic,
   BlockfrostProvider,
   MeshWallet,
+  Transaction,
   resolvePaymentKeyHash,
 } from '@meshsdk/core'
 import { validateMnemonic } from 'bip39'
@@ -70,4 +71,32 @@ export async function fetchBalance(address: string): Promise<{
     quantity: q.toString(),
   }))
   return { lovelace: lovelace.toString(), assets }
+}
+
+// Constroi, assina e submete uma tx transferindo `lovelace` do endereço derivado
+// da mnemonica para `toAddress`. Lovelace string evita perdas de precisao com
+// numeros grandes. Mesh cuida da selecao de UTxOs e troco.
+export async function sendAda(
+  words: string[],
+  toAddress: string,
+  lovelace: string,
+): Promise<{ txHash: string; fromAddress: string }> {
+  if (!isValidMnemonic(words)) {
+    throw new Error('Mnemonica invalida (esperado 24 palavras BIP-39 com checksum valido)')
+  }
+  const provider = getProvider()
+  const wallet = new MeshWallet({
+    networkId: 0,
+    fetcher: provider,
+    submitter: provider,
+    key: { type: 'mnemonic', words },
+  })
+  await wallet.init()
+  const fromAddress = await wallet.getChangeAddress()
+
+  const tx = new Transaction({ initiator: wallet }).sendLovelace(toAddress, lovelace)
+  const unsigned = await tx.build()
+  const signed = await wallet.signTx(unsigned)
+  const txHash = await wallet.submitTx(signed)
+  return { txHash, fromAddress }
 }
