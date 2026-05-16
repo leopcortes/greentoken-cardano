@@ -309,7 +309,7 @@ export function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Garrafa</TableHead>
+                    <TableHead>Garrafa <span className="text-xs text-muted-foreground">(último tx)</span></TableHead>
                     <TableHead>Estágio</TableHead>
                     <TableHead>Greentoken</TableHead>
                     <TableHead>Data</TableHead>

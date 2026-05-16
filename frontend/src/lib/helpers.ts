@@ -15,9 +15,9 @@ export const STAGES: StageInfo[] = [
   { id: 'compacted', label: 'Compactada', reward: 3 },
 ];
 
-const SIZES: BottleSize[] = ['S', 'M', 'L'];
-const TINTS: BottleTint[] = ['clear', 'clear', 'green', 'blue', 'amber', 'clear'];
-const KINDS: BottleKind[] = ['PET', 'PET', 'PET', 'HDPE', 'PET'];
+const SIZES: BottleSize[] = ['L', 'M', 'S', 'L', 'M', 'S', 'M'];
+const TINTS: BottleTint[] = ['green', 'amber', 'blue', 'blue', 'green', 'amber', 'green'];
+const KINDS: BottleKind[] = ['PET', 'PET', 'PET', 'HDPE', 'PET', 'HDPE', 'PET'];
 
 export function buildInventory(seed = 7, count = 12): InventoryBottleData[] {
   let s = seed;
@@ -88,7 +88,6 @@ export function volumeMlOf(size: BottleSize): number {
 
 export function tintLabelOf(tint: BottleTint): string {
   const map: Record<BottleTint, string> = {
-    clear: 'Transparente',
     green: 'Verde',
     blue: 'Azul',
     amber: 'Âmbar',
@@ -104,7 +103,7 @@ export function kindLabelOf(b: InventoryBottleData): string {
 
 export function materialLabelOf(b: InventoryBottleData): string {
   if (!b.invalid) return 'Reciclável (PET/HDPE)';
-  return b.invalid === 'can' ? 'Alumínio (não aceito)' : 'Vidro (não aceito)';
+  return b.invalid === 'can' ? 'Alumínio' : 'Vidro';
 }
 
 export function fmtDateTime(iso: string): string {

@@ -334,7 +334,7 @@ export function StationsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Garrafa</TableHead>
+                        <TableHead>Garrafa <span className="text-xs text-muted-foreground">(último tx)</span></TableHead>
                         <TableHead>Volume</TableHead>
                         <TableHead>Estágio</TableHead>
                       </TableRow>

@@ -1,5 +1,5 @@
 export type BottleSize = 'S' | 'M' | 'L';
-export type BottleTint = 'clear' | 'green' | 'blue' | 'amber';
+export type BottleTint = 'green' | 'blue' | 'amber';
 export type BottleKind = 'PET' | 'HDPE' | 'AL' | 'GLASS';
 export type BottleInvalid = 'can' | 'glass' | null;
 

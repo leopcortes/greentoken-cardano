@@ -555,7 +555,7 @@ export function TxTable({ rows, hideADA }: TxTableProps) {
                   {tx.hash ? (
                     <span className="inline-flex items-center gap-1">
                       <span className="mono text-[11px] text-ink-3">
-                        {truncateMiddle(tx.hash, 8, 6)}
+                        {truncateMiddle(tx.hash, 16, 8)}
                       </span>
                       <CopyButton value={tx.hash} />
                       <a
